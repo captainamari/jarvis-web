@@ -1,196 +1,215 @@
 'use client';
 
-import { useState } from 'react';
-import { TaskList } from '@/components/tasks';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { TaskStatusBadge } from '@/components/tasks';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { StatsCard, StatusChart, RecentActivity } from '@/components/dashboard';
+import { CreateTaskDialog } from '@/components/tasks';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
-  Bot,
-  Calendar,
   Zap,
-  FileText,
-  ArrowRight,
-  ExternalLink,
+  CheckCircle2,
+  DollarSign,
+  Activity,
+  Plus,
+  RefreshCcw,
 } from 'lucide-react';
-import type { Task } from '@/types/task';
-import { formatTokens } from '@/components/tasks';
+import { getUserStats, getUserTasks } from '@/lib/api';
+import { APP_CONFIG } from '@/config';
+import type { Task, UserStatsResponse, TaskStatus } from '@/types/task';
+
+/**
+ * Format token count for display
+ */
+function formatTokens(tokens: number): string {
+  if (tokens >= 1000000) {
+    return `${(tokens / 1000000).toFixed(2)}M`;
+  }
+  if (tokens >= 1000) {
+    return `${(tokens / 1000).toFixed(1)}K`;
+  }
+  return String(tokens);
+}
+
+/**
+ * Format cost as currency
+ */
+function formatCost(cost: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(cost);
+}
 
 export default function DashboardPage() {
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const router = useRouter();
+  const [stats, setStats] = useState<UserStatsResponse | null>(null);
+  const [recentTasks, setRecentTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showCreateTask, setShowCreateTask] = useState(false);
+
+  const userId = APP_CONFIG.defaultUserId;
+
+  // Fetch stats and recent tasks
+  const fetchData = async (showRefreshing = false) => {
+    try {
+      if (showRefreshing) setIsRefreshing(true);
+      setError(null);
+
+      const [statsData, tasksData] = await Promise.all([
+        getUserStats(userId),
+        getUserTasks(userId, { include_archived: true }),
+      ]);
+
+      setStats(statsData);
+      // Sort by updated_at and take most recent 10
+      const sortedTasks = tasksData
+        .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+        .slice(0, 10);
+      setRecentTasks(sortedTasks);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load data');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // Calculate active tasks (running + pending + suspended + awaiting_review)
+  const activeTasks = stats
+    ? (stats.tasks_by_status.running || 0) +
+      (stats.tasks_by_status.pending || 0) +
+      (stats.tasks_by_status.suspended || 0) +
+      (stats.tasks_by_status.awaiting_review || 0)
+    : 0;
+
+  const handleTaskClick = (task: Task) => {
+    router.push(`/workbench?task=${task.id}`);
+  };
+
+  const handleTaskCreated = (task: Task) => {
+    setShowCreateTask(false);
+    router.push(`/workbench?task=${task.id}`);
+  };
+
+  // Loading skeleton
+  if (isLoading) {
+    return (
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-48 mb-2" />
+            <Skeleton className="h-4 w-72" />
+          </div>
+          <Skeleton className="h-10 w-32" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[320px]" />
+          <Skeleton className="h-[320px]" />
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex h-full">
-      {/* Task List Panel */}
-      <div className="w-[380px] border-r border-border flex-shrink-0">
-        <TaskList
-          onTaskSelect={setSelectedTask}
-          selectedTaskId={selectedTask?.id}
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Overview of your Jarvis agent performance
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => fetchData(true)}
+            disabled={isRefreshing}
+          >
+            <RefreshCcw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button onClick={() => setShowCreateTask(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Task
+          </Button>
+        </div>
+      </div>
+
+      {/* Error State */}
+      {error && (
+        <div className="px-4 py-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-500 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatsCard
+          title="Active Tasks"
+          value={activeTasks}
+          subtitle="in progress"
+          icon={Activity}
+          iconClassName="bg-blue-500/20 text-blue-500"
+        />
+        <StatsCard
+          title="Completed"
+          value={stats?.archived_count || 0}
+          subtitle="archived"
+          icon={CheckCircle2}
+          iconClassName="bg-green-500/20 text-green-500"
+        />
+        <StatsCard
+          title="Tokens Used"
+          value={formatTokens(stats?.total_tokens_used || 0)}
+          subtitle="total"
+          icon={Zap}
+          iconClassName="bg-yellow-500/20 text-yellow-500"
+        />
+        <StatsCard
+          title="Total Cost"
+          value={formatCost(stats?.total_cost || 0)}
+          icon={DollarSign}
+          iconClassName="bg-emerald-500/20 text-emerald-500"
         />
       </div>
 
-      {/* Task Detail Panel */}
-      <div className="flex-1 flex flex-col">
-        {selectedTask ? (
-          <TaskDetailPanel task={selectedTask} />
-        ) : (
-          <EmptyDetailPanel />
+      {/* Charts & Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Status Distribution Chart */}
+        {stats && (
+          <StatusChart
+            data={stats.tasks_by_status as Record<TaskStatus, number>}
+          />
         )}
-      </div>
-    </div>
-  );
-}
 
-function TaskDetailPanel({ task }: { task: Task }) {
-  return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b border-border">
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex-1 min-w-0 pr-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-mono text-muted-foreground">
-                #{String(task.id).slice(-6)}
-              </span>
-              <TaskStatusBadge status={task.status} />
-            </div>
-            <h1 className="text-xl font-semibold mb-2">{task.description}</h1>
-          </div>
-          <Button variant="outline" size="sm" className="gap-2 shrink-0">
-            <ExternalLink className="h-4 w-4" />
-            Open in Workbench
-          </Button>
-        </div>
-
-        {/* Meta Info */}
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
-          <div className="flex items-center gap-2">
-            <Bot className="h-4 w-4" />
-            <span className="capitalize">{task.agent_name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Calendar className="h-4 w-4" />
-            <span>{new Date(task.created_at).toLocaleString()}</span>
-          </div>
-          {task.total_tokens_used > 0 && (
-            <div className="flex items-center gap-2 text-yellow-500">
-              <Zap className="h-4 w-4" />
-              <span>{formatTokens(task.total_tokens_used)} tokens</span>
-              <span className="text-muted-foreground">
-                (${task.total_cost.toFixed(4)})
-              </span>
-            </div>
-          )}
-        </div>
+        {/* Recent Activity */}
+        <RecentActivity
+          tasks={recentTasks}
+          onTaskClick={handleTaskClick}
+        />
       </div>
 
-      {/* Content */}
-      <ScrollArea className="flex-1 p-6">
-        <div className="space-y-6">
-          {/* Error Message */}
-          {task.status === 'failed' && task.error_message && (
-            <Card className="border-red-500/20 bg-red-500/5">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm text-red-500">Error</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">{task.error_message}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Archive Summary */}
-          {task.is_archived && task.archive_summary && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm whitespace-pre-wrap">{task.archive_summary}</p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Artifacts */}
-          {task.archive_artifacts && task.archive_artifacts.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Artifacts</CardTitle>
-                <CardDescription>Files generated by this task</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {task.archive_artifacts.map((artifact, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center gap-2 p-2 rounded-md bg-secondary/50 text-sm font-mono"
-                    >
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                      {artifact}
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Task Details */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Task Details</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <dt className="text-muted-foreground">Task ID</dt>
-                  <dd className="font-mono">{task.id}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">User ID</dt>
-                  <dd className="font-mono">{task.user_id}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Created</dt>
-                  <dd>{new Date(task.created_at).toLocaleString()}</dd>
-                </div>
-                <div>
-                  <dt className="text-muted-foreground">Updated</dt>
-                  <dd>{new Date(task.updated_at).toLocaleString()}</dd>
-                </div>
-                {task.archived_at && (
-                  <div>
-                    <dt className="text-muted-foreground">Archived</dt>
-                    <dd>{new Date(task.archived_at).toLocaleString()}</dd>
-                  </div>
-                )}
-              </dl>
-            </CardContent>
-          </Card>
-
-          {/* Placeholder for events/conversation */}
-          <Card className="border-dashed">
-            <CardContent className="py-8 text-center text-muted-foreground">
-              <p className="text-sm">Task conversation history coming in Phase 3...</p>
-            </CardContent>
-          </Card>
-        </div>
-      </ScrollArea>
-    </div>
-  );
-}
-
-function EmptyDetailPanel() {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center text-muted-foreground">
-      <Bot className="h-16 w-16 mb-4 opacity-20" />
-      <h2 className="text-lg font-medium mb-2">No Task Selected</h2>
-      <p className="text-sm">Select a task from the list to view details</p>
+      {/* Create Task Dialog */}
+      <CreateTaskDialog
+        open={showCreateTask}
+        onOpenChange={setShowCreateTask}
+        onTaskCreated={handleTaskCreated}
+      />
     </div>
   );
 }

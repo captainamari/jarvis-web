@@ -2,6 +2,7 @@
 
 import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Markdown } from '@/components/ui/markdown';
 import { Bot, User } from 'lucide-react';
 
 interface MessageBubbleProps {
@@ -52,13 +53,17 @@ export function MessageBubble({ content, isUser, agent, timestamp }: MessageBubb
         {/* Bubble */}
         <div
           className={cn(
-            'px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap',
+            'px-4 py-2.5 rounded-2xl text-sm leading-relaxed',
             isUser
               ? 'bg-blue-600 text-white rounded-br-md'
               : 'bg-muted text-foreground rounded-bl-md'
           )}
         >
-          {content}
+          {isUser ? (
+            <span className="whitespace-pre-wrap">{content}</span>
+          ) : (
+            <Markdown content={content} className="prose-p:my-1" />
+          )}
         </div>
 
         {/* Timestamp */}

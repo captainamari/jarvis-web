@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageBubble } from './message-bubble';
 import { ThoughtLog } from './thought-log';
 import { ToolCallLog, ToolResultLog } from './tool-call-log';
 import { StatusIndicator } from './status-indicator';
 import { ErrorMessage } from './error-message';
-import { Bot, MessageSquare } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Bot, MessageSquare, ArrowDown } from 'lucide-react';
 import type { ChatMessage } from '@/types/sse';
 
 interface ChatMessagesProps {
@@ -16,16 +17,60 @@ interface ChatMessagesProps {
 }
 
 /**
- * Chat messages container with auto-scroll
+ * Chat messages container with improved auto-scroll
  */
 export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const [showScrollButton, setShowScrollButton] = useState(false);
+  const [isAutoScrollEnabled, setIsAutoScrollEnabled] = useState(true);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Scroll to bottom function
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({
+        behavior: smooth ? 'smooth' : 'auto',
+        block: 'end',
+      });
+    }
+  }, []);
+
+  // Check if user is near the bottom
+  const checkScrollPosition = useCallback(() => {
+    const container = scrollContainerRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!container) return;
+
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    const isNearBottom = scrollHeight - scrollTop - clientHeight < 100;
+    
+    setShowScrollButton(!isNearBottom);
+    setIsAutoScrollEnabled(isNearBottom);
+  }, []);
+
+  // Auto-scroll when new messages arrive (if enabled)
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (isAutoScrollEnabled && messages.length > 0) {
+      // Use requestAnimationFrame for smoother scrolling
+      requestAnimationFrame(() => {
+        scrollToBottom(true);
+      });
+    }
+  }, [messages, isAutoScrollEnabled, scrollToBottom]);
+
+  // Setup scroll listener
+  useEffect(() => {
+    const container = scrollContainerRef.current?.querySelector('[data-radix-scroll-area-viewport]');
+    if (!container) return;
+
+    container.addEventListener('scroll', checkScrollPosition);
+    return () => container.removeEventListener('scroll', checkScrollPosition);
+  }, [checkScrollPosition]);
+
+  // Handle manual scroll to bottom
+  const handleScrollToBottom = () => {
+    setIsAutoScrollEnabled(true);
+    scrollToBottom(true);
+  };
 
   // Render individual message based on type
   const renderMessage = (message: ChatMessage, index: number) => {
@@ -139,11 +184,26 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
   }
 
   return (
-    <ScrollArea className="flex-1" ref={scrollAreaRef}>
-      <div className="flex flex-col gap-4 p-4">
-        {messages.map(renderMessage)}
-        <div ref={bottomRef} />
-      </div>
-    </ScrollArea>
+    <div className="flex-1 relative" ref={scrollContainerRef}>
+      <ScrollArea className="h-full">
+        <div className="flex flex-col gap-4 p-4">
+          {messages.map(renderMessage)}
+          <div ref={bottomRef} className="h-1" />
+        </div>
+      </ScrollArea>
+
+      {/* Scroll to bottom button */}
+      {showScrollButton && (
+        <Button
+          variant="secondary"
+          size="sm"
+          className="absolute bottom-4 right-4 rounded-full shadow-lg gap-1.5"
+          onClick={handleScrollToBottom}
+        >
+          <ArrowDown className="h-4 w-4" />
+          New messages
+        </Button>
+      )}
+    </div>
   );
 }

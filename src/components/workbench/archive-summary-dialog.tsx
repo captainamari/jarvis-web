@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Markdown } from '@/components/ui/markdown';
 import {
   Archive,
   CheckCircle2,
@@ -169,9 +170,10 @@ export function ArchiveSummaryDialog({
                 </div>
                 <ScrollArea className="max-h-[200px]">
                   <div className="px-4 py-3 rounded-lg bg-muted/30 border">
-                    <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                      {summary}
-                    </p>
+                    <Markdown
+                      content={summary}
+                      className="text-sm text-foreground/90"
+                    />
                   </div>
                 </ScrollArea>
               </div>
