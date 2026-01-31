@@ -11,6 +11,10 @@ import type {
   UserStatsResponse,
   TaskListParams,
 } from '@/types/task';
+import type {
+  HITLApprovalRequest,
+  HITLApprovalResponse,
+} from '@/types/hitl';
 
 /**
  * Base fetch wrapper with error handling
@@ -95,6 +99,20 @@ export async function archiveTask(
   data: ArchiveRequest = {}
 ): Promise<ArchiveResponse> {
   return fetchApi<ArchiveResponse>(`/tasks/${taskId}/archive`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+/**
+ * Approve or reject HITL request (for suspended tasks)
+ * This resumes the task with the user's decision
+ */
+export async function approveHITL(
+  taskId: number,
+  data: HITLApprovalRequest
+): Promise<HITLApprovalResponse> {
+  return fetchApi<HITLApprovalResponse>(`/tasks/${taskId}/approve`, {
     method: 'POST',
     body: JSON.stringify(data),
   });

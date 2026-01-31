@@ -7,3 +7,5 @@ export { ChatHeader } from './chat-header';
 export { ChatInput } from './chat-input';
 export { ChatMessages } from './chat-messages';
 export { ReviewPanel } from './review-panel';
+export { ActionBanner } from './action-banner';
+export { ArchiveSummaryDialog } from './archive-summary-dialog';

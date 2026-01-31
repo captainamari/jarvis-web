@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CURRENT_USER_ID } from '@/config';
-import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents } from '@/lib/api';
+import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents, approveHITL } from '@/lib/api';
 import { useTaskStream } from '@/hooks/use-task-stream';
 import { ChatHeader } from '@/components/workbench/chat-header';
 import { ChatMessages } from '@/components/workbench/chat-messages';
 import { ChatInput } from '@/components/workbench/chat-input';
-import { ReviewPanel } from '@/components/workbench/review-panel';
+import { ActionBanner } from '@/components/workbench/action-banner';
+import { ArchiveSummaryDialog } from '@/components/workbench/archive-summary-dialog';
 import { TaskCard } from '@/components/tasks/task-card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import { Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Task } from '@/types/task';
+import type { Task, ReviewResponse } from '@/types/task';
 import type { ChatMessage } from '@/types/sse';
 
 export default function WorkbenchPage() {
@@ -23,6 +23,10 @@ export default function WorkbenchPage() {
   const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  
+  // Archive summary dialog state
+  const [showArchiveDialog, setShowArchiveDialog] = useState(false);
+  const [archiveResponse, setArchiveResponse] = useState<ReviewResponse | null>(null);
 
   // Fetch user tasks
   const { data: tasks = [], isLoading: isLoadingTasks } = useQuery({
@@ -32,7 +36,7 @@ export default function WorkbenchPage() {
   });
 
   // Fetch selected task details
-  const { data: selectedTask } = useQuery({
+  const { data: selectedTask, refetch: refetchTask } = useQuery({
     queryKey: ['task', selectedTaskId],
     queryFn: () => (selectedTaskId ? getTask(selectedTaskId) : null),
     enabled: !!selectedTaskId,
@@ -76,9 +80,34 @@ export default function WorkbenchPage() {
   const reviewTaskMutation = useMutation({
     mutationFn: ({ taskId, action, feedback }: { taskId: number; action: 'approve' | 'reject'; feedback?: string }) =>
       reviewTask(taskId, { action, feedback }),
+    onSuccess: (response, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
+      
+      // Show archive summary dialog on approval
+      if (variables.action === 'approve') {
+        setArchiveResponse(response);
+        // Refetch task to get updated archive_summary
+        setTimeout(() => {
+          refetchTask().then(() => {
+            setShowArchiveDialog(true);
+          });
+        }, 500);
+      }
+    },
+  });
+
+  // HITL approval mutation
+  const hitlMutation = useMutation({
+    mutationFn: ({ taskId, approved, message }: { taskId: number; approved: boolean; message?: string }) =>
+      approveHITL(taskId, { approved, message }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
       queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
+      // Reconnect to stream after HITL response
+      if (selectedTaskId) {
+        connect(selectedTaskId);
+      }
     },
   });
 
@@ -186,8 +215,28 @@ export default function WorkbenchPage() {
     }
   };
 
-  // Handle review actions
-  const handleApprove = async (feedback?: string) => {
+  // Handle HITL approval (for suspended status)
+  const handleHITLApprove = async (message?: string) => {
+    if (!selectedTaskId) return;
+    await hitlMutation.mutateAsync({
+      taskId: selectedTaskId,
+      approved: true,
+      message,
+    });
+  };
+
+  // Handle HITL rejection (for suspended status)
+  const handleHITLReject = async (message?: string) => {
+    if (!selectedTaskId) return;
+    await hitlMutation.mutateAsync({
+      taskId: selectedTaskId,
+      approved: false,
+      message,
+    });
+  };
+
+  // Handle review approval (for awaiting_review status)
+  const handleReviewApprove = async (feedback?: string) => {
     if (!selectedTaskId) return;
     await reviewTaskMutation.mutateAsync({
       taskId: selectedTaskId,
@@ -196,7 +245,8 @@ export default function WorkbenchPage() {
     });
   };
 
-  const handleReject = async (feedback?: string) => {
+  // Handle review rejection (for awaiting_review status)
+  const handleReviewReject = async (feedback: string) => {
     if (!selectedTaskId) return;
     await reviewTaskMutation.mutateAsync({
       taskId: selectedTaskId,
@@ -221,13 +271,29 @@ export default function WorkbenchPage() {
     setSelectedTaskId(null);
   };
 
-  // Determine if input should be disabled
-  const isInputDisabled = selectedTask?.status === 'archived' || 
-                          selectedTask?.status === 'awaiting_review';
+  // Create new task handler
+  const handleCreateNewTask = () => {
+    disconnect();
+    clearMessages();
+    setSelectedTaskId(null);
+  };
 
-  // Show review panel for awaiting_review status
-  const showReviewPanel = selectedTask?.status === 'awaiting_review' || 
-                          currentStatus === 'awaiting_review';
+  // Get effective status (from SSE stream or task)
+  const effectiveStatus = currentStatus || selectedTask?.status;
+
+  // Determine if input should be disabled
+  const isInputDisabled = effectiveStatus === 'archived' || 
+                          effectiveStatus === 'awaiting_review' ||
+                          effectiveStatus === 'suspended';
+
+  // Get HITL question from the latest status change message
+  const hitlQuestion = messages.find(
+    m => m.type === 'status' && m.status === 'suspended' && m.hitlQuestion
+  )?.hitlQuestion;
+
+  // Check if action banner should be shown
+  const showActionBanner = effectiveStatus && 
+    ['suspended', 'awaiting_review', 'archived', 'failed'].includes(effectiveStatus);
 
   return (
     <div className="flex h-full">
@@ -247,11 +313,7 @@ export default function WorkbenchPage() {
             </div>
           </div>
           <Button
-            onClick={() => {
-              disconnect();
-              clearMessages();
-              setSelectedTaskId(null);
-            }}
+            onClick={handleCreateNewTask}
             className="w-full gap-2"
           >
             <Plus className="h-4 w-4" />
@@ -318,7 +380,7 @@ export default function WorkbenchPage() {
         {/* Messages */}
         <ChatMessages 
           messages={messages} 
-          isLoading={isConnected && currentStatus === 'running'} 
+          isLoading={isConnected && effectiveStatus === 'running'} 
         />
 
         {/* Error Banner */}
@@ -328,27 +390,42 @@ export default function WorkbenchPage() {
           </div>
         )}
 
-        {/* Review Panel */}
-        {showReviewPanel && (
-          <ReviewPanel
-            onApprove={handleApprove}
-            onReject={handleReject}
-            isLoading={reviewTaskMutation.isPending}
+        {/* Action Banner (HITL / Review / Archived) */}
+        {showActionBanner && effectiveStatus && (
+          <ActionBanner
+            status={effectiveStatus as any}
+            hitlQuestion={hitlQuestion}
+            onHITLApprove={handleHITLApprove}
+            onHITLReject={handleHITLReject}
+            onReviewApprove={handleReviewApprove}
+            onReviewReject={handleReviewReject}
+            isLoading={reviewTaskMutation.isPending || hitlMutation.isPending}
           />
         )}
 
-        {/* Input Area */}
-        <ChatInput
-          onSubmit={handleSubmit}
-          isDisabled={isInputDisabled}
-          isLoading={isCreatingTask || createTaskMutation.isPending}
-          placeholder={
-            isInputDisabled
-              ? 'This task is archived. Create a new task to continue.'
-              : 'Describe what you want Jarvis to do...'
-          }
-        />
+        {/* Input Area (hidden when action banner shows) */}
+        {!showActionBanner && (
+          <ChatInput
+            onSubmit={handleSubmit}
+            isDisabled={isInputDisabled}
+            isLoading={isCreatingTask || createTaskMutation.isPending}
+            placeholder={
+              isInputDisabled
+                ? 'This task is archived. Create a new task to continue.'
+                : 'Describe what you want Jarvis to do...'
+            }
+          />
+        )}
       </div>
+
+      {/* Archive Summary Dialog */}
+      <ArchiveSummaryDialog
+        open={showArchiveDialog}
+        onOpenChange={setShowArchiveDialog}
+        task={selectedTask || null}
+        reviewResponse={archiveResponse}
+        onCreateNewTask={handleCreateNewTask}
+      />
     </div>
   );
 }
