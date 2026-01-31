@@ -1,46 +1,40 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import {
+  LayoutDashboard,
+  MessageSquareText,
   Bot,
-  ListTodo,
-  MessageSquare,
-  UserCheck,
-  BarChart3,
   Settings,
+  Sparkles,
   ChevronLeft,
   ChevronRight,
-  Sparkles,
-  Plus,
 } from 'lucide-react';
-import type { SidebarSection } from '@/types';
+import { APP_CONFIG } from '@/config';
 
 interface NavItem {
-  id: SidebarSection;
+  id: string;
   label: string;
   icon: React.ElementType;
   href: string;
-  badge?: number;
 }
 
 const navItems: NavItem[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/' },
+  { id: 'workbench', label: 'Workbench', icon: MessageSquareText, href: '/workbench' },
   { id: 'agents', label: 'Agents', icon: Bot, href: '/agents' },
-  { id: 'tasks', label: 'Tasks', icon: ListTodo, href: '/tasks' },
-  { id: 'conversations', label: 'Conversations', icon: MessageSquare, href: '/conversations' },
-  { id: 'hitl', label: 'Review Queue', icon: UserCheck, href: '/review', badge: 3 },
-  { id: 'analytics', label: 'Analytics', icon: BarChart3, href: '/analytics' },
+  { id: 'settings', label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
 interface SidebarProps {
@@ -55,54 +49,44 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
     onCollapsedChange?.(!collapsed);
   };
 
+  const isActiveRoute = (href: string) => {
+    if (href === '/') {
+      return pathname === '/';
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
+
   return (
     <aside
       className={cn(
         'flex flex-col h-screen bg-card border-r border-border transition-all duration-300 ease-in-out',
-        collapsed ? 'w-16' : 'w-[280px]'
+        collapsed ? 'w-16' : 'w-[250px]'
       )}
     >
       {/* Logo & Brand */}
       <div className="flex items-center h-14 px-4 border-b border-border">
         <Link href="/" className="flex items-center gap-3 overflow-hidden">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary/10 shrink-0">
             <Sparkles className="w-5 h-5 text-primary" />
           </div>
           {!collapsed && (
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold tracking-tight">Project Jarvis</span>
-              <span className="text-[10px] text-muted-foreground">Multi-Agent System</span>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-semibold tracking-tight truncate">
+                {APP_CONFIG.name}
+              </span>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {APP_CONFIG.description}
+              </span>
             </div>
           )}
         </Link>
       </div>
 
-      {/* Quick Action */}
-      <div className="p-3">
-        {collapsed ? (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button size="icon" className="w-full">
-                <Plus className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">New Task</TooltipContent>
-          </Tooltip>
-        ) : (
-          <Button className="w-full justify-start gap-2">
-            <Plus className="h-4 w-4" />
-            New Task
-          </Button>
-        )}
-      </div>
-
-      <Separator />
-
       {/* Navigation */}
-      <ScrollArea className="flex-1 px-3 py-2">
+      <ScrollArea className="flex-1 px-3 py-4">
         <nav className="flex flex-col gap-1">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
+            const isActive = isActiveRoute(item.href);
             const Icon = item.icon;
 
             if (collapsed) {
@@ -114,23 +98,15 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
                         variant={isActive ? 'secondary' : 'ghost'}
                         size="icon"
                         className={cn(
-                          'w-full relative',
+                          'w-full h-10',
                           isActive && 'bg-secondary'
                         )}
                       >
                         <Icon className="h-5 w-5" />
-                        {item.badge && item.badge > 0 && (
-                          <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                            {item.badge}
-                          </span>
-                        )}
                       </Button>
                     </Link>
                   </TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.label}
-                    {item.badge && item.badge > 0 && ` (${item.badge})`}
-                  </TooltipContent>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
                 </Tooltip>
               );
             }
@@ -140,17 +116,12 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
                 <Button
                   variant={isActive ? 'secondary' : 'ghost'}
                   className={cn(
-                    'w-full justify-start gap-3',
+                    'w-full justify-start gap-3 h-10',
                     isActive && 'bg-secondary'
                   )}
                 >
-                  <Icon className="h-5 w-5" />
-                  <span className="flex-1 text-left">{item.label}</span>
-                  {item.badge && item.badge > 0 && (
-                    <Badge variant="default" className="ml-auto h-5 px-1.5 text-[10px]">
-                      {item.badge}
-                    </Badge>
-                  )}
+                  <Icon className="h-5 w-5 shrink-0" />
+                  <span className="truncate">{item.label}</span>
                 </Button>
               </Link>
             );
@@ -160,26 +131,40 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
 
       <Separator />
 
-      {/* Footer */}
+      {/* User Section */}
       <div className="p-3">
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Link href="/settings">
-                <Button variant="ghost" size="icon" className="w-full">
-                  <Settings className="h-5 w-5" />
-                </Button>
-              </Link>
+              <Button variant="ghost" size="icon" className="w-full">
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src="" alt="User" />
+                  <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                    JD
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">Settings</TooltipContent>
+            <TooltipContent side="right">
+              <div className="flex flex-col">
+                <span className="font-medium">John Doe</span>
+                <span className="text-xs text-muted-foreground">john@example.com</span>
+              </div>
+            </TooltipContent>
           </Tooltip>
         ) : (
-          <Link href="/settings">
-            <Button variant="ghost" className="w-full justify-start gap-3">
-              <Settings className="h-5 w-5" />
-              Settings
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3 px-2 py-1.5 rounded-md hover:bg-secondary/50 transition-colors cursor-pointer">
+            <Avatar className="h-8 w-8 shrink-0">
+              <AvatarImage src="" alt="User" />
+              <AvatarFallback className="bg-primary/10 text-primary text-xs">
+                JD
+              </AvatarFallback>
+            </Avatar>
+            <div className="flex flex-col min-w-0">
+              <span className="text-sm font-medium truncate">John Doe</span>
+              <span className="text-xs text-muted-foreground truncate">john@example.com</span>
+            </div>
+          </div>
         )}
       </div>
 
@@ -190,7 +175,7 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
           size="sm"
           onClick={toggleCollapsed}
           className={cn(
-            'w-full',
+            'w-full h-8',
             collapsed ? 'justify-center' : 'justify-between'
           )}
         >
