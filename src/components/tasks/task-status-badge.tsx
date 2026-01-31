@@ -15,6 +15,7 @@ import type { TaskStatus } from '@/types/task';
 interface TaskStatusBadgeProps {
   status: TaskStatus;
   className?: string;
+  size?: 'sm' | 'default';
 }
 
 /**
@@ -59,21 +60,27 @@ const statusConfig: Record<TaskStatus, {
   },
 };
 
-export function TaskStatusBadge({ status, className }: TaskStatusBadgeProps) {
+export function TaskStatusBadge({ status, className, size = 'default' }: TaskStatusBadgeProps) {
   const config = statusConfig[status];
   const Icon = config.icon;
+
+  const isSmall = size === 'sm';
 
   return (
     <Badge
       variant="outline"
       className={cn(
-        'gap-1.5 font-medium border',
+        'gap-1 font-medium border',
         config.className,
+        isSmall && 'text-[10px] px-1.5 py-0',
         className
       )}
     >
-      <Icon className={cn('h-3 w-3', config.iconClassName)} />
-      {config.label}
+      <Icon className={cn(
+        isSmall ? 'h-2.5 w-2.5' : 'h-3 w-3',
+        config.iconClassName
+      )} />
+      {isSmall ? config.label.split(' ')[0] : config.label}
     </Badge>
   );
 }

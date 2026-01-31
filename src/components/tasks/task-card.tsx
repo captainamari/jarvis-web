@@ -12,6 +12,7 @@ interface TaskCardProps {
   onClick?: (task: Task) => void;
   isSelected?: boolean;
   className?: string;
+  compact?: boolean;
 }
 
 /**
@@ -87,13 +88,36 @@ function truncateDescription(text: string, maxLength: number = 80): string {
   return text.slice(0, maxLength).trim() + '...';
 }
 
-export function TaskCard({ task, onClick, isSelected, className }: TaskCardProps) {
+export function TaskCard({ task, onClick, isSelected, className, compact = false }: TaskCardProps) {
   const shortId = useMemo(() => formatTaskIdShort(task.id), [task.id]);
   const timeAgo = useMemo(() => formatCreatedAt(task.created_at), [task.created_at]);
   const truncatedDesc = useMemo(
-    () => truncateDescription(task.description),
-    [task.description]
+    () => truncateDescription(task.description, compact ? 50 : 80),
+    [task.description, compact]
   );
+
+  if (compact) {
+    return (
+      <div
+        className={cn(
+          'px-3 py-2 rounded-lg cursor-pointer transition-all duration-200',
+          'hover:bg-accent/50 border border-transparent',
+          isSelected && 'bg-accent border-primary/50',
+          className
+        )}
+        onClick={() => onClick?.(task)}
+      >
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-xs font-mono text-muted-foreground">
+            {shortId}
+          </span>
+          <TaskStatusBadge status={task.status} size="sm" />
+        </div>
+        <p className="text-sm truncate">{truncatedDesc}</p>
+        <span className="text-xs text-muted-foreground">{timeAgo}</span>
+      </div>
+    );
+  }
 
   return (
     <Card
