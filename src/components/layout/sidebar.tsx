@@ -20,8 +20,10 @@ import {
   Sparkles,
   ChevronLeft,
   ChevronRight,
+  Plus,
 } from 'lucide-react';
 import { APP_CONFIG } from '@/config';
+import { CreateTaskDialog } from '@/components/tasks';
 
 interface NavItem {
   id: string;
@@ -81,6 +83,35 @@ export function Sidebar({ collapsed = false, onCollapsedChange }: SidebarProps) 
           )}
         </Link>
       </div>
+
+      {/* Quick Action - Create Task */}
+      <div className="p-3">
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <CreateTaskDialog
+                trigger={
+                  <Button size="icon" className="w-full">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                }
+              />
+            </TooltipTrigger>
+            <TooltipContent side="right">New Task</TooltipContent>
+          </Tooltip>
+        ) : (
+          <CreateTaskDialog
+            trigger={
+              <Button className="w-full justify-start gap-2">
+                <Plus className="h-4 w-4" />
+                New Task
+              </Button>
+            }
+          />
+        )}
+      </div>
+
+      <Separator />
 
       {/* Navigation */}
       <ScrollArea className="flex-1 px-3 py-4">
