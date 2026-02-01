@@ -6,13 +6,16 @@
  * Mock User ID for API requests
  * TODO: Replace with actual authentication in production
  */
-export const CURRENT_USER_ID = 1;
+export const CURRENT_USER_ID = 7160455832;
 
 /**
  * API Configuration
+ * 使用 Next.js rewrites 代理，避免跨域问题
+ * /api/* 会被转发到 http://127.0.0.1:8000/*
  */
 export const API_CONFIG = {
-  baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
+  // 使用相对路径，通过 Next.js rewrites 代理到后端
+  baseUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -65,4 +68,5 @@ export const APP_CONFIG = {
   sidebarWidth: 250,
   sidebarCollapsedWidth: 64,
   defaultTheme: 'dark' as const,
+  defaultUserId: CURRENT_USER_ID,
 } as const;

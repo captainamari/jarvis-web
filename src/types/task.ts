@@ -17,29 +17,37 @@ export type TaskStatus =
 export type AgentName = 'secretary' | 'python_dev' | 'investor';
 
 /**
+ * Task ID type
+ * 
+ * 后端返回的 task_id 是 17 位数字格式 (时间戳 + 3位随机数)
+ * 由于超过 JavaScript Number.MAX_SAFE_INTEGER，必须使用 string 类型
+ */
+export type TaskId = string;
+
+/**
  * Task Response from API
  */
 export interface Task {
-  id: number;                      // 17位时间戳格式 ID
-  user_id: number;                 // 用户 ID
-  description: string;             // 任务描述
-  status: TaskStatus;              // 任务状态
-  agent_name: string;              // 执行 Agent 名称
-  error_message: string | null;    // 错误信息（失败时）
+  id: TaskId;                     // 17位时间戳格式 ID (字符串，避免精度丢失)
+  user_id: string;                // 用户 ID (字符串)
+  description: string;            // 任务描述
+  status: TaskStatus;             // 任务状态
+  agent_name: string;             // 执行 Agent 名称
+  error_message: string | null;   // 错误信息（失败时）
   
   // Token & Cost tracking
-  total_tokens_used: number;       // 累计 Token 消耗
-  total_cost: number;              // 累计成本 (USD)
+  total_tokens_used: number;      // 累计 Token 消耗
+  total_cost: number;             // 累计成本 (USD)
   
   // Archive fields
-  archive_summary: string | null;  // 归档总结
+  archive_summary: string | null; // 归档总结
   archive_artifacts: string[] | null; // 产出物路径列表
-  is_archived: boolean;            // 是否已归档
-  archived_at: string | null;      // 归档时间 (ISO 8601)
+  is_archived: boolean;           // 是否已归档
+  archived_at: string | null;     // 归档时间 (ISO 8601)
   
   // Timestamps
-  created_at: string;              // 创建时间 (ISO 8601)
-  updated_at: string;              // 更新时间 (ISO 8601)
+  created_at: string;             // 创建时间 (ISO 8601)
+  updated_at: string;             // 更新时间 (ISO 8601)
 }
 
 /**
@@ -60,7 +68,7 @@ export interface CreateTaskResponse extends Task {}
  * Task Run Response
  */
 export interface TaskRunResponse {
-  task_id: number;
+  task_id: TaskId;
   status: 'started' | 'already_running' | 'already_completed' | 'already_archived' | 'awaiting_review';
   message: string;
 }
@@ -77,7 +85,7 @@ export interface ReviewRequest {
  * Review Response
  */
 export interface ReviewResponse {
-  task_id: number;
+  task_id: TaskId;
   action: 'approve' | 'reject';
   new_status: TaskStatus;
   message: string;
@@ -98,7 +106,7 @@ export interface ArchiveRequest {
  * Archive Response
  */
 export interface ArchiveResponse {
-  task_id: number;
+  task_id: TaskId;
   status: 'archived' | 'already_archived' | 'error';
   archive_summary: string;
   archived_at: string;
@@ -110,7 +118,7 @@ export interface ArchiveResponse {
  * User Stats Response
  */
 export interface UserStatsResponse {
-  user_id: number;
+  user_id: string;
   total_tasks: number;
   tasks_by_status: Record<TaskStatus, number>;
   total_tokens_used: number;

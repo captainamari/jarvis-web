@@ -15,14 +15,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { Task, ReviewResponse } from '@/types/task';
+import type { Task, TaskId, ReviewResponse } from '@/types/task';
 import type { ChatMessage } from '@/types/sse';
 
 export default function WorkbenchPage() {
   const queryClient = useQueryClient();
-  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  // TaskId 使用 string 类型，避免 JavaScript 大数精度丢失
+  const [selectedTaskId, setSelectedTaskId] = useState<TaskId | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
   const [isCreatingTask, setIsCreatingTask] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
   // Archive summary dialog state
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
@@ -55,6 +57,7 @@ export default function WorkbenchPage() {
     disconnect,
     clearMessages,
     addUserMessage,
+    setHistoryMessages,
   } = useTaskStream({
     onStatusChange: (event) => {
       // Refresh task list when status changes
@@ -69,7 +72,7 @@ export default function WorkbenchPage() {
     onSuccess: (newTask) => {
       // Refresh task list
       queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
-      // Select the new task
+      // Select the new task (id 现在是 string 类型)
       setSelectedTaskId(newTask.id);
       // Connect to SSE stream
       connect(newTask.id);
@@ -78,7 +81,7 @@ export default function WorkbenchPage() {
 
   // Review task mutation
   const reviewTaskMutation = useMutation({
-    mutationFn: ({ taskId, action, feedback }: { taskId: number; action: 'approve' | 'reject'; feedback?: string }) =>
+    mutationFn: ({ taskId, action, feedback }: { taskId: TaskId; action: 'approve' | 'reject'; feedback?: string }) =>
       reviewTask(taskId, { action, feedback }),
     onSuccess: (response, variables) => {
       queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
@@ -99,7 +102,7 @@ export default function WorkbenchPage() {
 
   // HITL approval mutation
   const hitlMutation = useMutation({
-    mutationFn: ({ taskId, approved, message }: { taskId: number; approved: boolean; message?: string }) =>
+    mutationFn: ({ taskId, approved, message }: { taskId: TaskId; approved: boolean; message?: string }) =>
       approveHITL(taskId, { approved, message }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
@@ -112,23 +115,53 @@ export default function WorkbenchPage() {
   });
 
   // Load historical events when task is selected
-  const loadTaskHistory = useCallback(async (taskId: number) => {
+  const loadTaskHistory = useCallback(async (taskId: TaskId) => {
     try {
       const events = await getTaskEvents(taskId);
+      
+      // Safety check: ensure events is an array
+      if (!Array.isArray(events)) {
+        console.warn('getTaskEvents did not return an array:', events);
+        return [];
+      }
+      
       // Convert events to chat messages
       const historyMessages: ChatMessage[] = events.map((event: any, index: number) => {
+        // Safety check: ensure event has required fields
+        if (!event || typeof event.role !== 'string') {
+          console.warn('Invalid event:', event);
+          return null;
+        }
+        
+        // Ensure content is always a string
+        const safeContent = event.content ?? '';
+        
         if (event.role === 'user') {
           return {
             id: `history-${event.id || index}`,
             type: 'user' as const,
-            content: event.content,
+            content: String(safeContent),
             timestamp: event.created_at || new Date().toISOString(),
           };
         } else if (event.role === 'assistant') {
+          // Assistant content might be JSON array from Claude API
+          let textContent = String(safeContent);
+          try {
+            const parsed = JSON.parse(safeContent);
+            if (Array.isArray(parsed)) {
+              // Extract text from Claude response format: [{type: "text", text: "..."}]
+              const texts = parsed
+                .filter((block: any) => block && block.type === 'text')
+                .map((block: any) => block.text || '');
+              textContent = texts.join('\n') || textContent;
+            }
+          } catch {
+            // Content is plain text, use as is
+          }
           return {
             id: `history-${event.id || index}`,
             type: 'assistant' as const,
-            content: event.content,
+            content: textContent,
             agent: event.meta?.agent || 'assistant',
             timestamp: event.created_at || new Date().toISOString(),
           };
@@ -136,34 +169,44 @@ export default function WorkbenchPage() {
           return {
             id: `history-${event.id || index}`,
             type: 'thought' as const,
-            content: event.content,
+            content: String(safeContent),
             agent: event.meta?.agent,
             timestamp: event.created_at || new Date().toISOString(),
           };
         } else if (event.role === 'tool_use') {
-          const meta = typeof event.meta === 'string' ? JSON.parse(event.meta) : event.meta;
+          const meta = typeof event.meta === 'string' ? JSON.parse(event.meta) : (event.meta || {});
           return {
             id: `history-${event.id || index}`,
             type: 'tool_call' as const,
-            content: event.content,
+            content: String(safeContent),
             toolName: meta?.tool_name || 'unknown',
             toolInput: meta?.input,
             agent: meta?.agent,
             timestamp: event.created_at || new Date().toISOString(),
           };
         } else if (event.role === 'tool_result') {
-          const meta = typeof event.meta === 'string' ? JSON.parse(event.meta) : event.meta;
+          const meta = typeof event.meta === 'string' ? JSON.parse(event.meta) : (event.meta || {});
           return {
             id: `history-${event.id || index}`,
             type: 'tool_result' as const,
-            content: event.content,
+            content: String(safeContent),
             toolName: meta?.tool_name || 'unknown',
-            toolResult: event.content,
+            toolResult: String(safeContent),
             toolSuccess: meta?.success ?? true,
             agent: meta?.agent,
             timestamp: event.created_at || new Date().toISOString(),
           };
+        } else if (event.role === 'review_feedback') {
+          // M5: Review feedback from user
+          return {
+            id: `history-${event.id || index}`,
+            type: 'review_feedback' as const,
+            content: String(safeContent),
+            timestamp: event.created_at || new Date().toISOString(),
+          };
         }
+        // Unknown role, skip
+        console.warn('Unknown event role:', event.role);
         return null;
       }).filter(Boolean) as ChatMessage[];
 
@@ -181,18 +224,24 @@ export default function WorkbenchPage() {
     clearMessages();
     
     setSelectedTaskId(task.id);
+    setIsLoadingHistory(true);
     
-    // Load task history
-    const history = await loadTaskHistory(task.id);
-    history.forEach(msg => {
-      // We need to add messages to state, but since we cleared, we start fresh
-    });
+    try {
+      // Load task history
+      const history = await loadTaskHistory(task.id);
+      // Set history messages to display
+      setHistoryMessages(history);
+    } catch (err) {
+      console.error('Failed to load task history:', err);
+    } finally {
+      setIsLoadingHistory(false);
+    }
     
     // Connect to SSE if task is running
     if (['running', 'pending'].includes(task.status)) {
       connect(task.id);
     }
-  }, [disconnect, clearMessages, loadTaskHistory, connect]);
+  }, [disconnect, clearMessages, loadTaskHistory, connect, setHistoryMessages]);
 
   // Handle message submission
   const handleSubmit = async (message: string) => {
@@ -380,7 +429,8 @@ export default function WorkbenchPage() {
         {/* Messages */}
         <ChatMessages 
           messages={messages} 
-          isLoading={isConnected && effectiveStatus === 'running'} 
+          isLoading={isConnected && effectiveStatus === 'running'}
+          isLoadingHistory={isLoadingHistory}
         />
 
         {/* Error Banner */}

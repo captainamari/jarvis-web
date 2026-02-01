@@ -24,17 +24,38 @@ import {
 import { Plus, Loader2, Sparkles } from 'lucide-react';
 import { createTask } from '@/lib/api';
 import { CURRENT_USER_ID } from '@/config';
-import { AVAILABLE_AGENTS, type AgentName } from '@/types/task';
+import { AVAILABLE_AGENTS, type AgentName, type Task } from '@/types/task';
 
 interface CreateTaskDialogProps {
   trigger?: React.ReactNode;
   onSuccess?: (taskId: number) => void;
+  // 支持受控模式
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onTaskCreated?: (task: Task) => void;
 }
 
-export function CreateTaskDialog({ trigger, onSuccess }: CreateTaskDialogProps) {
-  const [open, setOpen] = useState(false);
+export function CreateTaskDialog({ 
+  trigger, 
+  onSuccess,
+  open: controlledOpen,
+  onOpenChange,
+  onTaskCreated,
+}: CreateTaskDialogProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [description, setDescription] = useState('');
   const [agentName, setAgentName] = useState<AgentName>('secretary');
+  
+  // 支持受控和非受控模式
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const setOpen = (value: boolean) => {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  };
   
   const queryClient = useQueryClient();
 
@@ -49,8 +70,9 @@ export function CreateTaskDialog({ trigger, onSuccess }: CreateTaskDialogProps) 
       setAgentName('secretary');
       setOpen(false);
       
-      // Callback with new task ID
+      // Callbacks
       onSuccess?.(data.id);
+      onTaskCreated?.(data);
     },
   });
 

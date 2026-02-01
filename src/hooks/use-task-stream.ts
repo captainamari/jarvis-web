@@ -39,10 +39,11 @@ interface UseTaskStreamReturn {
   currentStatus: string | null;
   
   // Actions
-  connect: (taskId: number) => void;
+  connect: (taskId: string) => void;
   disconnect: () => void;
   clearMessages: () => void;
   addUserMessage: (content: string) => void;
+  setHistoryMessages: (messages: ChatMessage[]) => void;
 }
 
 /**
@@ -57,8 +58,10 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
   const [currentStatus, setCurrentStatus] = useState<string | null>(null);
   
   const eventSourceRef = useRef<EventSource | null>(null);
-  const taskIdRef = useRef<number | null>(null);
+  // TaskId 使用 string 类型，避免 JavaScript 大数精度丢失
+  const taskIdRef = useRef<string | null>(null);
   const reconnectAttemptRef = useRef(0);
+  const isConnectingRef = useRef(false); // 防止 React Strict Mode 双重连接
   const maxReconnectAttempts = 5;
 
   /**
@@ -237,18 +240,29 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
 
   /**
    * Connect to SSE stream
+   * @param taskId - Task ID (string to avoid JS Number precision loss)
    */
-  const connect = useCallback((taskId: number) => {
+  const connect = useCallback((taskId: string) => {
+    // 防止 React Strict Mode 双重连接
+    if (isConnectingRef.current && taskIdRef.current === taskId) {
+      console.log('[SSE] Connection already in progress, skipping duplicate');
+      return;
+    }
+
     // Disconnect existing connection
     if (eventSourceRef.current) {
+      console.log('[SSE] Closing existing connection');
       eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
     
     taskIdRef.current = taskId;
+    isConnectingRef.current = true;
     setIsConnecting(true);
     setError(null);
     
     const url = getTaskStreamUrl(taskId);
+    console.log(`[SSE] Connecting to: ${url}`);
     const eventSource = new EventSource(url);
     eventSourceRef.current = eventSource;
     
@@ -267,21 +281,33 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
     ];
     
     eventTypes.forEach(eventType => {
-      eventSource.addEventListener(eventType, (e: MessageEvent) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      eventSource.addEventListener(eventType, (e: any) => {
+        console.log(`[SSE Event] ${eventType}:`, e.data);
         handleEvent(eventType, e.data);
       });
     });
+
+    // Handle SSE connection open
+    eventSource.onopen = () => {
+      console.log('[SSE] Connection opened');
+      isConnectingRef.current = false;
+    };
     
     // Handle SSE connection errors
-    eventSource.onerror = () => {
+    eventSource.onerror = (e) => {
+      console.error('[SSE] Connection error:', e);
+      console.log('[SSE] ReadyState:', eventSource.readyState);
       setIsConnected(false);
       setIsConnecting(false);
+      isConnectingRef.current = false;
       
       // Attempt reconnection with exponential backoff
       if (reconnectAttemptRef.current < maxReconnectAttempts && taskIdRef.current) {
         const delay = Math.min(1000 * Math.pow(2, reconnectAttemptRef.current), 30000);
         reconnectAttemptRef.current++;
         
+        console.log(`[SSE] Reconnect attempt ${reconnectAttemptRef.current}/${maxReconnectAttempts} in ${delay}ms`);
         setError(`Connection lost. Reconnecting in ${delay / 1000}s...`);
         
         setTimeout(() => {
@@ -290,6 +316,7 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
           }
         }, delay);
       } else {
+        console.error('[SSE] Max reconnection attempts reached');
         setError('Connection failed. Please refresh the page.');
         eventSource.close();
       }
@@ -305,6 +332,7 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
       eventSourceRef.current = null;
     }
     taskIdRef.current = null;
+    isConnectingRef.current = false;
     setIsConnected(false);
     setIsConnecting(false);
   }, []);
@@ -332,6 +360,14 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
     setMessages(prev => [...prev, userMessage]);
   }, []);
 
+  /**
+   * Set history messages (for loading task history)
+   * This replaces all current messages with the provided history
+   */
+  const setHistoryMessages = useCallback((historyMessages: ChatMessage[]) => {
+    setMessages(historyMessages);
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -352,5 +388,6 @@ export function useTaskStream(options: UseTaskStreamOptions = {}): UseTaskStream
     disconnect,
     clearMessages,
     addUserMessage,
+    setHistoryMessages,
   };
 }

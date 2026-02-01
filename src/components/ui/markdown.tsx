@@ -10,10 +10,19 @@ interface MarkdownProps {
 
 /**
  * Markdown renderer component with styled elements
+ * Note: react-markdown v9+ removed the className prop, so we wrap with a div
  */
 export function Markdown({ content, className }: MarkdownProps) {
+  // Safety check: ensure content is a valid string
+  const safeContent = content ?? '';
+  
+  // If content is empty, return null
+  if (!safeContent.trim()) {
+    return null;
+  }
+  
   return (
-    <ReactMarkdown
+    <div
       className={cn(
         'prose prose-sm dark:prose-invert max-w-none',
         'prose-p:leading-relaxed prose-p:my-2',
@@ -29,50 +38,53 @@ export function Markdown({ content, className }: MarkdownProps) {
         '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
         className
       )}
-      components={{
-        // Custom code block rendering
-        code: ({ className, children, ...props }) => {
-          const isInline = !className;
-          if (isInline) {
+    >
+      <ReactMarkdown
+        components={{
+          // Custom code block rendering
+          code: ({ className: codeClassName, children, ...props }) => {
+            const isInline = !codeClassName;
+            if (isInline) {
+              return (
+                <code
+                  className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            }
             return (
-              <code
-                className="bg-muted px-1.5 py-0.5 rounded text-sm font-mono"
-                {...props}
-              >
+              <code className={cn('block', codeClassName)} {...props}>
                 {children}
               </code>
             );
-          }
-          return (
-            <code className={cn('block', className)} {...props}>
+          },
+          // Custom pre rendering for code blocks
+          pre: ({ children, ...props }) => (
+            <pre
+              className="bg-muted border rounded-lg p-3 overflow-x-auto text-sm"
+              {...props}
+            >
               {children}
-            </code>
-          );
-        },
-        // Custom pre rendering for code blocks
-        pre: ({ children, ...props }) => (
-          <pre
-            className="bg-muted border rounded-lg p-3 overflow-x-auto text-sm"
-            {...props}
-          >
-            {children}
-          </pre>
-        ),
-        // Custom link rendering
-        a: ({ children, href, ...props }) => (
-          <a
-            href={href}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary underline underline-offset-2 hover:text-primary/80"
-            {...props}
-          >
-            {children}
-          </a>
-        ),
-      }}
-    >
-      {content}
-    </ReactMarkdown>
+            </pre>
+          ),
+          // Custom link rendering
+          a: ({ children, href, ...props }) => (
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary underline underline-offset-2 hover:text-primary/80"
+              {...props}
+            >
+              {children}
+            </a>
+          ),
+        }}
+      >
+        {safeContent}
+      </ReactMarkdown>
+    </div>
   );
 }

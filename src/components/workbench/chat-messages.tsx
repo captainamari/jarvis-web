@@ -8,18 +8,19 @@ import { ToolCallLog, ToolResultLog } from './tool-call-log';
 import { StatusIndicator } from './status-indicator';
 import { ErrorMessage } from './error-message';
 import { Button } from '@/components/ui/button';
-import { Bot, MessageSquare, ArrowDown } from 'lucide-react';
+import { Bot, MessageSquare, ArrowDown, Loader2, AlertTriangle } from 'lucide-react';
 import type { ChatMessage } from '@/types/sse';
 
 interface ChatMessagesProps {
   messages: ChatMessage[];
   isLoading?: boolean;
+  isLoadingHistory?: boolean;
 }
 
 /**
  * Chat messages container with improved auto-scroll
  */
-export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
+export function ChatMessages({ messages, isLoading, isLoadingHistory }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showScrollButton, setShowScrollButton] = useState(false);
@@ -153,10 +154,52 @@ export function ChatMessages({ messages, isLoading }: ChatMessagesProps) {
           />
         );
 
+      case 'review_feedback':
+        // M5: Review feedback from user (rejection with feedback)
+        return (
+          <div
+            key={message.id}
+            className="mx-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20"
+          >
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500 mt-0.5 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-amber-600 dark:text-amber-400 mb-1">
+                  Review Feedback
+                </p>
+                <p className="text-sm text-foreground whitespace-pre-wrap">
+                  {message.content}
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
   };
+
+  // Loading history state
+  if (isLoadingHistory) {
+    return (
+      <div className="flex-1 flex items-center justify-center">
+        <div className="text-center space-y-4 px-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-muted/50 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 text-muted-foreground animate-spin" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-lg font-medium text-foreground">
+              Loading conversation...
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+              Retrieving task history and previous messages.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Empty state
   if (messages.length === 0) {

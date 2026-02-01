@@ -46,10 +46,12 @@ export type TaskStatus =
   | 'pending' 
   | 'queued' 
   | 'running' 
-  | 'awaiting_review' 
+  | 'suspended'       // HITL 1.0 - 挂起等待审批
+  | 'awaiting_review' // M5 - 待验收
   | 'approved' 
   | 'rejected' 
   | 'completed' 
+  | 'archived'        // M5 - 已归档
   | 'failed' 
   | 'cancelled';
 
