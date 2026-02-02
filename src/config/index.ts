@@ -3,10 +3,25 @@
 // ============================================
 
 /**
- * Mock User ID for API requests
- * TODO: Replace with actual authentication in production
+ * Admin User ID from environment variable
+ * Required for all API requests to the backend
  */
-export const CURRENT_USER_ID = 7160455832;
+const adminUserId = process.env.NEXT_PUBLIC_ADMIN_USER_ID;
+
+if (!adminUserId) {
+  const errorMsg = '[Config Error] NEXT_PUBLIC_ADMIN_USER_ID is not set in environment variables. The application will not function correctly without it.';
+  console.error(errorMsg);
+  // In development, throw an error to fail fast
+  if (process.env.NODE_ENV === 'development') {
+    throw new Error(errorMsg);
+  }
+}
+
+/**
+ * @deprecated Use config.adminUserId instead
+ * Mock User ID for API requests - kept for backwards compatibility
+ */
+export const CURRENT_USER_ID = adminUserId ? Number(adminUserId) : 7160455832;
 
 /**
  * API Configuration
@@ -69,4 +84,19 @@ export const APP_CONFIG = {
   sidebarCollapsedWidth: 64,
   defaultTheme: 'dark' as const,
   defaultUserId: CURRENT_USER_ID,
+} as const;
+
+/**
+ * Unified configuration object
+ * Use this for accessing all configuration values
+ */
+export const config = {
+  /** Admin User ID for API requests (from NEXT_PUBLIC_ADMIN_USER_ID) */
+  adminUserId: adminUserId || '',
+  /** API configuration */
+  api: API_CONFIG,
+  /** API endpoints */
+  endpoints: API_ENDPOINTS,
+  /** Application settings */
+  app: APP_CONFIG,
 } as const;

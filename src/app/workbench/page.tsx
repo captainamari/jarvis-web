@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { CURRENT_USER_ID } from '@/config';
 import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents, approveHITL } from '@/lib/api';
 import { useTaskStream } from '@/hooks/use-task-stream';
 import { ChatHeader } from '@/components/workbench/chat-header';
@@ -32,8 +31,8 @@ export default function WorkbenchPage() {
 
   // Fetch user tasks
   const { data: tasks = [], isLoading: isLoadingTasks } = useQuery({
-    queryKey: ['tasks', CURRENT_USER_ID],
-    queryFn: () => getUserTasks(CURRENT_USER_ID, { include_archived: false }),
+    queryKey: ['tasks'],
+    queryFn: () => getUserTasks({ include_archived: false }),
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 

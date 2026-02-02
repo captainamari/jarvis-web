@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { TaskCard } from './task-card';
 import { CreateTaskDialog } from './create-task-dialog';
 import { getUserTasks } from '@/lib/api';
-import { CURRENT_USER_ID } from '@/config';
 import { Loader2, RefreshCw, Inbox, Plus } from 'lucide-react';
 import type { Task } from '@/types/task';
 
@@ -29,8 +28,8 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
     refetch,
     isFetching,
   } = useQuery({
-    queryKey: ['tasks', CURRENT_USER_ID, includeArchived],
-    queryFn: () => getUserTasks(CURRENT_USER_ID, { include_archived: includeArchived }),
+    queryKey: ['tasks', includeArchived],
+    queryFn: () => getUserTasks({ include_archived: includeArchived }),
     refetchInterval: 10000, // Refresh every 10 seconds
   });
 

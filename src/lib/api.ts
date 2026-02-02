@@ -1,4 +1,4 @@
-import { API_CONFIG } from '@/config';
+import { API_CONFIG, config } from '@/config';
 import type {
   Task,
   CreateTaskRequest,
@@ -90,10 +90,21 @@ async function fetchApi<T>(
 // ============================================
 
 /**
+ * Get the user tasks base path
+ * Uses adminUserId from config for all task-related API calls
+ */
+function getUserTasksBasePath(): string {
+  if (!config.adminUserId) {
+    throw new Error('[API Error] adminUserId is not configured. Please set NEXT_PUBLIC_ADMIN_USER_ID in your environment.');
+  }
+  return `/users/${config.adminUserId}/tasks`;
+}
+
+/**
  * Create a new task
  */
 export async function createTask(data: CreateTaskRequest): Promise<CreateTaskResponse> {
-  return fetchApi<CreateTaskResponse>('/tasks', {
+  return fetchApi<CreateTaskResponse>(getUserTasksBasePath(), {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -104,7 +115,7 @@ export async function createTask(data: CreateTaskRequest): Promise<CreateTaskRes
  * @param taskId - Task ID (string to avoid JS Number precision loss)
  */
 export async function getTask(taskId: string): Promise<Task> {
-  return fetchApi<Task>(`/tasks/${taskId}`);
+  return fetchApi<Task>(`${getUserTasksBasePath()}/${taskId}`);
 }
 
 /**
@@ -112,7 +123,7 @@ export async function getTask(taskId: string): Promise<Task> {
  * @param taskId - Task ID (string to avoid JS Number precision loss)
  */
 export async function runTask(taskId: string): Promise<TaskRunResponse> {
-  return fetchApi<TaskRunResponse>(`/tasks/${taskId}/run`, {
+  return fetchApi<TaskRunResponse>(`${getUserTasksBasePath()}/${taskId}/run`, {
     method: 'POST',
   });
 }
@@ -122,7 +133,7 @@ export async function runTask(taskId: string): Promise<TaskRunResponse> {
  * @param taskId - Task ID (string to avoid JS Number precision loss)
  */
 export async function getTaskEvents(taskId: string): Promise<unknown[]> {
-  return fetchApi<unknown[]>(`/tasks/${taskId}/events`);
+  return fetchApi<unknown[]>(`${getUserTasksBasePath()}/${taskId}/events`);
 }
 
 /**
@@ -133,7 +144,7 @@ export async function reviewTask(
   taskId: string,
   data: ReviewRequest
 ): Promise<ReviewResponse> {
-  return fetchApi<ReviewResponse>(`/tasks/${taskId}/review`, {
+  return fetchApi<ReviewResponse>(`${getUserTasksBasePath()}/${taskId}/review`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -147,7 +158,7 @@ export async function archiveTask(
   taskId: string,
   data: ArchiveRequest = {}
 ): Promise<ArchiveResponse> {
-  return fetchApi<ArchiveResponse>(`/tasks/${taskId}/archive`, {
+  return fetchApi<ArchiveResponse>(`${getUserTasksBasePath()}/${taskId}/archive`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -162,7 +173,7 @@ export async function approveHITL(
   taskId: string,
   data: HITLApprovalRequest
 ): Promise<HITLApprovalResponse> {
-  return fetchApi<HITLApprovalResponse>(`/tasks/${taskId}/approve`, {
+  return fetchApi<HITLApprovalResponse>(`${getUserTasksBasePath()}/${taskId}/approve`, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -174,9 +185,9 @@ export async function approveHITL(
 
 /**
  * Get user's tasks list
+ * Uses adminUserId from config
  */
 export async function getUserTasks(
-  userId: number,
   params: TaskListParams = {}
 ): Promise<Task[]> {
   const searchParams = new URLSearchParams();
@@ -189,16 +200,20 @@ export async function getUserTasks(
   }
   
   const queryString = searchParams.toString();
-  const endpoint = `/users/${userId}/tasks${queryString ? `?${queryString}` : ''}`;
+  const endpoint = `${getUserTasksBasePath()}${queryString ? `?${queryString}` : ''}`;
   
   return fetchApi<Task[]>(endpoint);
 }
 
 /**
  * Get user statistics
+ * Uses adminUserId from config
  */
-export async function getUserStats(userId: number): Promise<UserStatsResponse> {
-  return fetchApi<UserStatsResponse>(`/users/${userId}/stats`);
+export async function getUserStats(): Promise<UserStatsResponse> {
+  if (!config.adminUserId) {
+    throw new Error('[API Error] adminUserId is not configured. Please set NEXT_PUBLIC_ADMIN_USER_ID in your environment.');
+  }
+  return fetchApi<UserStatsResponse>(`/users/${config.adminUserId}/stats`);
 }
 
 // ============================================
@@ -218,10 +233,14 @@ export async function healthCheck(): Promise<{ status: string; version: string }
 
 /**
  * Get SSE stream URL for a task
+ * Uses adminUserId from config
  * @param taskId - Task ID (string to avoid JS Number precision loss)
  */
 export function getTaskStreamUrl(taskId: string): string {
-  return `${API_CONFIG.baseUrl}/tasks/${taskId}/stream`;
+  if (!config.adminUserId) {
+    throw new Error('[API Error] adminUserId is not configured. Please set NEXT_PUBLIC_ADMIN_USER_ID in your environment.');
+  }
+  return `${API_CONFIG.baseUrl}/users/${config.adminUserId}/tasks/${taskId}/stream`;
 }
 
 /**

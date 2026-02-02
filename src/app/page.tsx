@@ -15,7 +15,6 @@ import {
   RefreshCcw,
 } from 'lucide-react';
 import { getUserStats, getUserTasks } from '@/lib/api';
-import { APP_CONFIG } from '@/config';
 import type { Task, UserStatsResponse, TaskStatus } from '@/types/task';
 
 /**
@@ -52,8 +51,6 @@ export default function DashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [showCreateTask, setShowCreateTask] = useState(false);
 
-  const userId = APP_CONFIG.defaultUserId;
-
   // Fetch stats and recent tasks
   const fetchData = async (showRefreshing = false) => {
     try {
@@ -61,8 +58,8 @@ export default function DashboardPage() {
       setError(null);
 
       const [statsData, tasksData] = await Promise.all([
-        getUserStats(userId),
-        getUserTasks(userId, { include_archived: true }),
+        getUserStats(),
+        getUserTasks({ include_archived: true }),
       ]);
 
       setStats(statsData);
