@@ -19,7 +19,7 @@ interface TaskCardProps {
  * Format task ID to short display format
  * Full ID: 20260129143052123 -> Display: #143052
  */
-function formatTaskIdShort(taskId: number): string {
+function formatTaskIdShort(taskId: string): string {
   const str = String(taskId);
   if (str.length >= 14) {
     // Extract HHMMSS portion (chars 8-14)

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from '@/components/ui/card';
 import { LucideIcon } from 'lucide-react';
@@ -15,10 +16,13 @@ interface StatsCardProps {
     label: string;
   };
   className?: string;
+  /** Optional link - if provided, the card becomes clickable */
+  href?: string;
 }
 
 /**
  * Stats card for displaying key metrics
+ * Optionally clickable when href is provided
  */
 export function StatsCard({
   title,
@@ -28,9 +32,16 @@ export function StatsCard({
   iconClassName,
   trend,
   className,
+  href,
 }: StatsCardProps) {
-  return (
-    <Card className={cn('relative overflow-hidden', className)}>
+  const cardContent = (
+    <Card
+      className={cn(
+        'relative overflow-hidden',
+        href && 'hover:shadow-md cursor-pointer transition-all hover:border-primary/50',
+        className
+      )}
+    >
       <CardContent className="p-6">
         <div className="flex items-start justify-between">
           <div className="space-y-2">
@@ -65,4 +76,11 @@ export function StatsCard({
       </CardContent>
     </Card>
   );
+
+  // Wrap in Link if href is provided
+  if (href) {
+    return <Link href={href}>{cardContent}</Link>;
+  }
+
+  return cardContent;
 }

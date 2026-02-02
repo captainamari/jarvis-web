@@ -24,11 +24,11 @@ import {
 import { Plus, Loader2, Sparkles } from 'lucide-react';
 import { createTask } from '@/lib/api';
 import { CURRENT_USER_ID } from '@/config';
-import { AVAILABLE_AGENTS, type AgentName, type Task } from '@/types/task';
+import { AVAILABLE_AGENTS, type AgentName, type Task, type TaskId } from '@/types/task';
 
 interface CreateTaskDialogProps {
   trigger?: React.ReactNode;
-  onSuccess?: (taskId: number) => void;
+  onSuccess?: (taskId: TaskId) => void;
   // 支持受控模式
   open?: boolean;
   onOpenChange?: (open: boolean) => void;

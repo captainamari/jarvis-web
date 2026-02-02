@@ -162,6 +162,7 @@ export default function DashboardPage() {
           subtitle="in progress"
           icon={Activity}
           iconClassName="bg-blue-500/20 text-blue-500"
+          href="/workbench?status=active"
         />
         <StatsCard
           title="Completed"
@@ -169,6 +170,7 @@ export default function DashboardPage() {
           subtitle="archived"
           icon={CheckCircle2}
           iconClassName="bg-green-500/20 text-green-500"
+          href="/workbench?status=archived"
         />
         <StatsCard
           title="Tokens Used"

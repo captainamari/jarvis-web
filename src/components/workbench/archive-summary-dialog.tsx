@@ -51,7 +51,7 @@ function formatTokens(tokens: number): string {
 /**
  * Format task ID
  */
-function formatTaskId(taskId: number): string {
+function formatTaskId(taskId: string): string {
   const str = String(taskId);
   if (str.length > 6) {
     return `#${str.slice(-6)}`;

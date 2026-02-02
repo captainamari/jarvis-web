@@ -33,6 +33,8 @@ interface ActionBannerProps {
   // For awaiting_review status
   onReviewApprove?: (feedback?: string) => Promise<void>;
   onReviewReject?: (feedback: string) => Promise<void>;
+  // For completed status - archive the task
+  onArchive?: () => Promise<void>;
   // For completed status - copy last agent response
   onCopyResult?: () => Promise<string | undefined>;
   // Loading states
@@ -56,12 +58,13 @@ export function ActionBanner({
   onHITLReject,
   onReviewApprove,
   onReviewReject,
+  onArchive,
   onCopyResult,
   isLoading = false,
 }: ActionBannerProps) {
   const [feedback, setFeedback] = useState('');
   const [hitlMessage, setHitlMessage] = useState('');
-  const [activeAction, setActiveAction] = useState<'approve' | 'reject' | null>(null);
+  const [activeAction, setActiveAction] = useState<'approve' | 'reject' | 'archive' | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Handle Copy Result
@@ -295,33 +298,64 @@ export function ActionBanner({
 
   // Completed Status (Quick Finish Path - no human review needed)
   if (status === 'completed') {
+    const handleArchive = async () => {
+      if (!onArchive) return;
+      setActiveAction('archive');
+      try {
+        await onArchive();
+      } finally {
+        setActiveAction(null);
+      }
+    };
+
     return (
-      <div className="border-t bg-gradient-to-r from-emerald-500/10 to-emerald-500/5">
-        <div className="px-4 py-3 flex items-center justify-between">
-          {/* Left: Status Info */}
-          <div className="flex items-center gap-3">
-            <div className="p-1.5 rounded-full bg-emerald-500/20">
-              <Zap className="h-4 w-4 text-emerald-400" />
+      <div className="border-t bg-gradient-to-b from-emerald-500/10 to-emerald-500/5">
+        <div className="p-4 space-y-4">
+          {/* Header */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-full bg-emerald-500/20">
+                <Zap className="h-5 w-5 text-emerald-400" />
+              </div>
+              <div>
+                <h4 className="font-medium text-emerald-300">
+                  Task Completed via Quick Mode
+                </h4>
+                <p className="text-xs text-emerald-400/70">
+                  Task finished automatically • Ready to archive
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-medium text-emerald-400">
-                Task Completed via Quick Mode
-              </p>
-              <p className="text-xs text-emerald-400/70">
-                Task finished automatically • No review required
-              </p>
+            <div className="p-1.5 rounded-full bg-emerald-500/20">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
             </div>
           </div>
 
-          {/* Right: Copy Result Button */}
-          <div className="flex items-center gap-2">
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button
+              onClick={handleArchive}
+              disabled={isLoading || !onArchive}
+              className={cn(
+                'flex-1 gap-2',
+                'bg-emerald-600 hover:bg-emerald-700 text-white'
+              )}
+            >
+              {activeAction === 'archive' ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Archive className="h-4 w-4" />
+              )}
+              Archive Task
+            </Button>
+
             {onCopyResult && (
               <Button
                 variant="outline"
-                size="sm"
                 onClick={handleCopyResult}
+                disabled={isLoading}
                 className={cn(
-                  'gap-1.5 transition-all',
+                  'gap-2 transition-all',
                   copied
                     ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
                     : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50'
@@ -329,21 +363,23 @@ export function ActionBanner({
               >
                 {copied ? (
                   <>
-                    <Check className="h-3.5 w-3.5" />
+                    <Check className="h-4 w-4" />
                     Copied!
                   </>
                 ) : (
                   <>
-                    <Copy className="h-3.5 w-3.5" />
+                    <Copy className="h-4 w-4" />
                     Copy Result
                   </>
                 )}
               </Button>
             )}
-            <div className="p-1.5 rounded-full bg-emerald-500/20">
-              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-            </div>
           </div>
+
+          {/* Help Text */}
+          <p className="text-xs text-muted-foreground text-center">
+            Archive the task to save the results and mark it as done.
+          </p>
         </div>
       </div>
     );

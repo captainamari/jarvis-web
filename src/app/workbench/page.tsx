@@ -2,7 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents, approveHITL } from '@/lib/api';
+import { CURRENT_USER_ID } from '@/config';
+import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents, approveHITL, archiveTask } from '@/lib/api';
 import { useTaskStream } from '@/hooks/use-task-stream';
 import { ChatHeader } from '@/components/workbench/chat-header';
 import { ChatMessages } from '@/components/workbench/chat-messages';
@@ -60,7 +61,7 @@ export default function WorkbenchPage() {
   } = useTaskStream({
     onStatusChange: (event) => {
       // Refresh task list when status changes
-      queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
     },
   });
@@ -70,7 +71,7 @@ export default function WorkbenchPage() {
     mutationFn: createTask,
     onSuccess: (newTask) => {
       // Refresh task list
-      queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       // Select the new task (id 现在是 string 类型)
       setSelectedTaskId(newTask.id);
       // Connect to SSE stream
@@ -83,7 +84,7 @@ export default function WorkbenchPage() {
     mutationFn: ({ taskId, action, feedback }: { taskId: TaskId; action: 'approve' | 'reject'; feedback?: string }) =>
       reviewTask(taskId, { action, feedback }),
     onSuccess: (response, variables) => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
       
       // Show archive summary dialog on approval
@@ -104,7 +105,7 @@ export default function WorkbenchPage() {
     mutationFn: ({ taskId, approved, message }: { taskId: TaskId; approved: boolean; message?: string }) =>
       approveHITL(taskId, { approved, message }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks', CURRENT_USER_ID] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
       // Reconnect to stream after HITL response
       if (selectedTaskId) {
@@ -305,6 +306,34 @@ export default function WorkbenchPage() {
     connect(selectedTaskId);
   };
 
+  // Handle archive for completed tasks
+  const handleArchive = async () => {
+    if (!selectedTaskId) return;
+    try {
+      const response = await archiveTask(selectedTaskId, { generate_summary: true });
+      // Refresh task data
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['task', selectedTaskId] });
+      // Show archive summary dialog
+      setArchiveResponse({
+        task_id: selectedTaskId,
+        action: 'approve',
+        new_status: 'archived',
+        message: 'Task archived successfully',
+        total_tokens_used: response.total_tokens_used,
+        total_cost: response.total_cost,
+      });
+      // Refetch task to get updated data
+      setTimeout(() => {
+        refetchTask().then(() => {
+          setShowArchiveDialog(true);
+        });
+      }, 500);
+    } catch (error) {
+      console.error('Failed to archive task:', error);
+    }
+  };
+
   // Reconnect handler
   const handleReconnect = () => {
     if (selectedTaskId) {
@@ -332,7 +361,8 @@ export default function WorkbenchPage() {
   // Determine if input should be disabled
   const isInputDisabled = effectiveStatus === 'archived' || 
                           effectiveStatus === 'awaiting_review' ||
-                          effectiveStatus === 'suspended';
+                          effectiveStatus === 'suspended' ||
+                          effectiveStatus === 'completed';
 
   // Get HITL question from the latest status change message
   const hitlQuestion = messages.find(
@@ -341,7 +371,7 @@ export default function WorkbenchPage() {
 
   // Check if action banner should be shown
   const showActionBanner = effectiveStatus && 
-    ['suspended', 'awaiting_review', 'archived', 'failed'].includes(effectiveStatus);
+    ['suspended', 'awaiting_review', 'completed', 'archived', 'failed'].includes(effectiveStatus);
 
   return (
     <div className="flex h-full">
@@ -439,7 +469,7 @@ export default function WorkbenchPage() {
           </div>
         )}
 
-        {/* Action Banner (HITL / Review / Archived) */}
+        {/* Action Banner (HITL / Review / Completed / Archived) */}
         {showActionBanner && effectiveStatus && (
           <ActionBanner
             status={effectiveStatus as any}
@@ -448,6 +478,7 @@ export default function WorkbenchPage() {
             onHITLReject={handleHITLReject}
             onReviewApprove={handleReviewApprove}
             onReviewReject={handleReviewReject}
+            onArchive={handleArchive}
             isLoading={reviewTaskMutation.isPending || hitlMutation.isPending}
           />
         )}
