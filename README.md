@@ -4,12 +4,13 @@ A modern web frontend for **Project Jarvis** - a multi-agent task execution syst
 
 Built with [Next.js 14](https://nextjs.org), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), and [shadcn/ui](https://ui.shadcn.com/).
 
-> **Version**: 5.1.0 | **Last Updated**: 2026-02-01
+> **Version**: 5.2.0 | **Last Updated**: 2026-02-02
 
 ## ✨ Features
 
 ### 📊 Dashboard
 - **Stats Cards**: Active tasks, completed tasks, token usage, and total cost
+- **Clickable Navigation**: Stats cards link to workbench with pre-applied filters
 - **Status Distribution Chart**: Visual bar chart of tasks by status
 - **Recent Activity**: Quick access to latest tasks
 
@@ -23,12 +24,14 @@ Built with [Next.js 14](https://nextjs.org), [TypeScript](https://www.typescript
 
 ### 🤖 Task Management
 - **Create Tasks**: Assign tasks to different agents (Secretary, Python Dev, Investor)
-- **Task List**: Filter by status, search, and sort
+- **Task List**: URL-driven filtering by status, search, and sort
 - **Task Details**: View full execution history and artifacts
+- **Filter Dropdown**: All, Active, Pending, Queued, Running, Suspended, Awaiting Review, Completed, Archived, Failed, Cancelled
 
 ### 🖐️ Human-in-the-Loop (HITL 2.0)
 - **Suspended Tasks**: Approve or reject agent requests (HITL 1.0)
 - **Review Workflow**: M5 验收流程 - Approve & archive or reject with feedback
+- **Completed Task Archive**: Archive button for completed tasks (Quick Finish path)
 - **Action Banners**: Context-aware UI for different task states
 - **Token Statistics**: Real-time token consumption and cost tracking
 
@@ -71,6 +74,15 @@ curl http://localhost:8000/health
 
 The app uses Next.js rewrites to proxy API requests, avoiding CORS issues:
 
+**`.env.local`** (create this file for local development):
+```bash
+# Admin User ID for API requests
+NEXT_PUBLIC_ADMIN_USER_ID=1
+
+# Optional: Override API base URL (defaults to /api which is proxied)
+# NEXT_PUBLIC_API_URL=/api
+```
+
 **`next.config.mjs`**:
 ```javascript
 const nextConfig = {
@@ -87,6 +99,11 @@ const nextConfig = {
 
 **`src/config/index.ts`**:
 ```typescript
+export const config = {
+  adminUserId: process.env.NEXT_PUBLIC_ADMIN_USER_ID || '',
+  // ...
+} as const;
+
 export const API_CONFIG = {
   // Uses relative path, proxied via Next.js rewrites
   baseUrl: process.env.NEXT_PUBLIC_API_URL || '/api',
@@ -165,23 +182,23 @@ The frontend connects to the Jarvis backend API via Next.js proxy:
 ### Task Management
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/tasks` | POST | Create new task |
-| `/tasks/{id}` | GET | Get task details |
-| `/tasks/{id}/run` | POST | Execute task |
-| `/tasks/{id}/stream` | GET | SSE event stream |
-| `/tasks/{id}/events` | GET | Event history |
+| `/users/{user_id}/tasks` | GET | User's task list |
+| `/users/{user_id}/tasks` | POST | Create new task |
+| `/users/{user_id}/tasks/{id}` | GET | Get task details |
+| `/users/{user_id}/tasks/{id}/run` | POST | Execute task |
+| `/users/{user_id}/tasks/{id}/stream` | GET | SSE event stream |
+| `/users/{user_id}/tasks/{id}/events` | GET | Event history |
 
 ### M5 Review & Archive
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/tasks/{id}/review` | POST | Submit review (approve/reject) |
-| `/tasks/{id}/archive` | POST | Archive task |
+| `/users/{user_id}/tasks/{id}/review` | POST | Submit review (approve/reject) |
+| `/users/{user_id}/tasks/{id}/archive` | POST | Archive task |
 
 ### User Endpoints
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/users/{id}/tasks` | GET | User's task list |
-| `/users/{id}/stats` | GET | User statistics |
+| `/users/{user_id}/stats` | GET | User statistics |
 
 ## 📡 SSE Event Types
 
@@ -206,28 +223,34 @@ PENDING → RUNNING → AWAITING_REVIEW → ARCHIVED
            SUSPENDED    (reject) → RUNNING
                 ↓
            ARCHIVED/FAILED
+
+         → COMPLETED → ARCHIVED (Quick Finish path)
 ```
 
 ### Status Types
 - `pending` - Waiting to execute
+- `queued` - Queued for execution
 - `running` - Currently executing
 - `suspended` - HITL 1.0 - Awaiting user input
 - `awaiting_review` - M5 - Agent completed, awaiting user review
+- `completed` - Quick Finish path - Task completed, ready to archive
 - `archived` - Task completed and archived
 - `failed` - Execution failed
+- `cancelled` - User cancelled
 
 ## 🎨 UI Components
 
 ### Custom Components
-- `StatsCard` - Metric display card
+- `StatsCard` - Metric display card with optional navigation link
 - `StatusChart` - Task distribution chart
 - `MessageBubble` - Chat message with markdown
 - `ThoughtLog` - Collapsible thinking process
 - `ToolCallLog` - Tool invocation display
-- `ActionBanner` - Status-based action UI
+- `ActionBanner` - Status-based action UI (supports archive for completed tasks)
 - `TaskCard` - Task list item
 - `CreateTaskDialog` - Task creation modal (controlled/uncontrolled)
 - `Markdown` - Markdown renderer (react-markdown v10 compatible, uses wrapper div)
+- `ArchiveSummaryDialog` - Archive summary display modal
 
 ### shadcn/ui Components
 - Accordion, Button, Card, Dialog
@@ -240,6 +263,26 @@ PENDING → RUNNING → AWAITING_REVIEW → ARCHIVED
 MIT
 
 ## 📝 Changelog
+
+### v5.2.0 (2026-02-02)
+- **API Layer Refactor**: Updated all task APIs to use User ID path pattern (`/users/{user_id}/tasks`)
+  - Added `adminUserId` to config from `NEXT_PUBLIC_ADMIN_USER_ID` env variable
+  - Created `getUserTasksBasePath()` helper for consistent URL building
+  - Simplified `getUserTasks()` and `getUserStats()` signatures
+- **Dashboard Navigation**: Stats cards now link to workbench with pre-applied filters
+  - Active tasks → `/workbench?status=active`
+  - Completed tasks → `/workbench?status=archived`
+  - Added hover effects and cursor pointer for clickable cards
+- **URL-driven Task Filtering**: TaskList now syncs with URL query parameters
+  - Filter status persists in URL (`?status=active`, `?status=completed`, etc.)
+  - Supports back/forward browser navigation
+  - Filter dropdown with all status options
+- **Completed Task Archive**: Added archive button for `completed` status tasks
+  - Consistent with `awaiting_review` archive workflow
+  - Supports Quick Finish path tasks
+- **Type Safety Fix**: Fixed `TaskId` type consistency across components
+  - `Task.id` and `selectedTaskId` now both use `TaskId` (string) type
+  - Fixed `formatTaskId` and `formatTaskIdShort` functions
 
 ### v5.1.0 (2026-02-01)
 - **Task History Loading**: Fixed conversation history display when selecting tasks in workbench
