@@ -2,14 +2,18 @@
 
 /**
  * Task Status Types
+ * Updated for Dual-Path Completion Mechanism
  */
 export type TaskStatus =
   | 'pending'          // 等待执行
+  | 'queued'           // 排队中，等待执行
   | 'running'          // 正在执行
   | 'suspended'        // 挂起等待审批 (HITL)
-  | 'awaiting_review'  // 待验收
+  | 'awaiting_review'  // 待验收 (Standard Review path)
+  | 'completed'        // 已完成 (Quick Finish path - no human review needed)
   | 'archived'         // 已归档
-  | 'failed';          // 执行失败
+  | 'failed'           // 执行失败
+  | 'cancelled';       // 用户取消
 
 /**
  * Available Agent Names

@@ -10,6 +10,8 @@ import {
   Loader2,
   XCircle,
   Eye,
+  ListOrdered,
+  Ban,
 } from 'lucide-react';
 
 interface StatusIndicatorProps {
@@ -22,6 +24,7 @@ interface StatusIndicatorProps {
 /**
  * Status change indicator component
  * Displays task status transitions inline in the chat
+ * Updated for Dual-Path Completion Mechanism
  */
 export function StatusIndicator({ 
   status, 
@@ -38,6 +41,13 @@ export function StatusIndicator({
           color: 'text-gray-400',
           bgColor: 'bg-gray-500/10 border-gray-500/20',
         };
+      case 'queued':
+        return {
+          icon: ListOrdered,
+          label: 'Queued',
+          color: 'text-amber-400',
+          bgColor: 'bg-amber-500/10 border-amber-500/20',
+        };
       case 'running':
         return {
           icon: Loader2,
@@ -50,21 +60,28 @@ export function StatusIndicator({
         return {
           icon: Hand,
           label: 'Awaiting Approval',
-          color: 'text-yellow-400',
-          bgColor: 'bg-yellow-500/10 border-yellow-500/20',
+          color: 'text-orange-400',
+          bgColor: 'bg-orange-500/10 border-orange-500/20',
         };
       case 'awaiting_review':
         return {
           icon: Eye,
           label: 'Awaiting Review',
-          color: 'text-purple-400',
-          bgColor: 'bg-purple-500/10 border-purple-500/20',
+          color: 'text-sky-400',
+          bgColor: 'bg-sky-500/10 border-sky-500/20',
+        };
+      case 'completed':
+        return {
+          icon: CheckCircle2,
+          label: 'Completed',
+          color: 'text-emerald-400',
+          bgColor: 'bg-emerald-500/10 border-emerald-500/20',
         };
       case 'archived':
         return {
           icon: Archive,
           label: 'Archived',
-          color: 'text-green-400',
+          color: 'text-green-500',
           bgColor: 'bg-green-500/10 border-green-500/20',
         };
       case 'failed':
@@ -73,6 +90,13 @@ export function StatusIndicator({
           label: 'Failed',
           color: 'text-red-400',
           bgColor: 'bg-red-500/10 border-red-500/20',
+        };
+      case 'cancelled':
+        return {
+          icon: Ban,
+          label: 'Cancelled',
+          color: 'text-gray-400',
+          bgColor: 'bg-gray-400/10 border-gray-400/20',
         };
       default:
         return {

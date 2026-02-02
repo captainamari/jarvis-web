@@ -44,16 +44,14 @@ export interface AgentMetrics {
 
 export type TaskStatus = 
   | 'pending' 
-  | 'queued' 
+  | 'queued'           // 排队中，等待执行
   | 'running' 
-  | 'suspended'       // HITL 1.0 - 挂起等待审批
-  | 'awaiting_review' // M5 - 待验收
-  | 'approved' 
-  | 'rejected' 
-  | 'completed' 
-  | 'archived'        // M5 - 已归档
+  | 'suspended'        // HITL 1.0 - 挂起等待审批
+  | 'awaiting_review'  // Standard Review path - 待验收
+  | 'completed'        // Quick Finish path - 已完成 (no human review needed)
+  | 'archived'         // M5 - 已归档
   | 'failed' 
-  | 'cancelled';
+  | 'cancelled';       // 用户取消
 
 export type TaskPriority = 'low' | 'medium' | 'high' | 'critical';
 

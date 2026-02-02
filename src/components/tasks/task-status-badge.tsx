@@ -9,6 +9,9 @@ import {
   Archive,
   AlertCircle,
   Clock,
+  CheckCircle2,
+  XCircle,
+  ListOrdered,
 } from 'lucide-react';
 import type { TaskStatus } from '@/types/task';
 
@@ -20,6 +23,7 @@ interface TaskStatusBadgeProps {
 
 /**
  * Status configuration with colors and icons
+ * Updated for Dual-Path Completion Mechanism
  */
 const statusConfig: Record<TaskStatus, {
   label: string;
@@ -32,6 +36,11 @@ const statusConfig: Record<TaskStatus, {
     icon: Clock,
     className: 'bg-muted text-muted-foreground border-muted-foreground/20',
   },
+  queued: {
+    label: 'Queued',
+    icon: ListOrdered,
+    className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+  },
   running: {
     label: 'Running',
     icon: Loader2,
@@ -41,22 +50,32 @@ const statusConfig: Record<TaskStatus, {
   suspended: {
     label: 'Suspended',
     icon: Hand,
-    className: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20',
+    className: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
   },
   awaiting_review: {
     label: 'Awaiting Review',
     icon: Eye,
-    className: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
+    className: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+  },
+  completed: {
+    label: 'Completed',
+    icon: CheckCircle2,
+    className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
   },
   archived: {
     label: 'Archived',
     icon: Archive,
-    className: 'bg-green-500/10 text-green-500 border-green-500/20',
+    className: 'bg-green-600/10 text-green-600 border-green-600/20',
   },
   failed: {
     label: 'Failed',
     icon: AlertCircle,
     className: 'bg-red-500/10 text-red-500 border-red-500/20',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    icon: XCircle,
+    className: 'bg-gray-400/10 text-gray-400 border-gray-400/20',
   },
 };
 

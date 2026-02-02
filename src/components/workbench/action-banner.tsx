@@ -15,6 +15,10 @@ import {
   AlertTriangle,
   Send,
   Lock,
+  Ban,
+  Zap,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { TaskStatus } from '@/types/task';
@@ -29,6 +33,8 @@ interface ActionBannerProps {
   // For awaiting_review status
   onReviewApprove?: (feedback?: string) => Promise<void>;
   onReviewReject?: (feedback: string) => Promise<void>;
+  // For completed status - copy last agent response
+  onCopyResult?: () => Promise<string | undefined>;
   // Loading states
   isLoading?: boolean;
 }
@@ -37,7 +43,9 @@ interface ActionBannerProps {
  * Action Banner Component
  * Handles different task statuses with appropriate UI:
  * - suspended: HITL approval with question display
- * - awaiting_review: Task review with approve/reject
+ * - awaiting_review: Task review with approve/reject (Standard Review path)
+ * - completed: Success banner for Quick Finish path
+ * - cancelled: Neutral banner for cancelled tasks
  * - archived: Read-only banner
  */
 export function ActionBanner({
@@ -48,11 +56,28 @@ export function ActionBanner({
   onHITLReject,
   onReviewApprove,
   onReviewReject,
+  onCopyResult,
   isLoading = false,
 }: ActionBannerProps) {
   const [feedback, setFeedback] = useState('');
   const [hitlMessage, setHitlMessage] = useState('');
   const [activeAction, setActiveAction] = useState<'approve' | 'reject' | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  // Handle Copy Result
+  const handleCopyResult = async () => {
+    if (!onCopyResult) return;
+    try {
+      const result = await onCopyResult();
+      if (result) {
+        await navigator.clipboard.writeText(result);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+    } catch (error) {
+      console.error('Failed to copy result:', error);
+    }
+  };
 
   // Handle HITL Approve
   const handleHITLApprove = async () => {
@@ -189,21 +214,21 @@ export function ActionBanner({
     );
   }
 
-  // Awaiting Review Status
+  // Awaiting Review Status (Standard Review Path)
   if (status === 'awaiting_review') {
     return (
-      <div className="border-t bg-gradient-to-b from-purple-500/10 to-purple-500/5">
+      <div className="border-t bg-gradient-to-b from-sky-500/10 to-sky-500/5">
         <div className="p-4 space-y-4">
           {/* Header */}
           <div className="flex items-center gap-2">
-            <div className="p-2 rounded-full bg-purple-500/20">
-              <Eye className="h-5 w-5 text-purple-400" />
+            <div className="p-2 rounded-full bg-sky-500/20">
+              <Eye className="h-5 w-5 text-sky-400" />
             </div>
             <div>
-              <h4 className="font-medium text-purple-300">
+              <h4 className="font-medium text-sky-300">
                 Task Ready for Review
               </h4>
-              <p className="text-xs text-purple-400/70">
+              <p className="text-xs text-sky-400/70">
                 Review the results and approve or request changes
               </p>
             </div>
@@ -217,7 +242,7 @@ export function ActionBanner({
             disabled={isLoading}
             className={cn(
               'min-h-[80px] resize-none',
-              'bg-muted/30 border-purple-500/30 focus:border-purple-500',
+              'bg-muted/30 border-sky-500/30 focus:border-sky-500',
               'placeholder:text-muted-foreground/50'
             )}
           />
@@ -268,6 +293,86 @@ export function ActionBanner({
     );
   }
 
+  // Completed Status (Quick Finish Path - no human review needed)
+  if (status === 'completed') {
+    return (
+      <div className="border-t bg-gradient-to-r from-emerald-500/10 to-emerald-500/5">
+        <div className="px-4 py-3 flex items-center justify-between">
+          {/* Left: Status Info */}
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-full bg-emerald-500/20">
+              <Zap className="h-4 w-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-emerald-400">
+                Task Completed via Quick Mode
+              </p>
+              <p className="text-xs text-emerald-400/70">
+                Task finished automatically • No review required
+              </p>
+            </div>
+          </div>
+
+          {/* Right: Copy Result Button */}
+          <div className="flex items-center gap-2">
+            {onCopyResult && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCopyResult}
+                className={cn(
+                  'gap-1.5 transition-all',
+                  copied
+                    ? 'border-emerald-500/50 text-emerald-400 bg-emerald-500/10'
+                    : 'border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/50'
+                )}
+              >
+                {copied ? (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-3.5 w-3.5" />
+                    Copy Result
+                  </>
+                )}
+              </Button>
+            )}
+            <div className="p-1.5 rounded-full bg-emerald-500/20">
+              <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Cancelled Status
+  if (status === 'cancelled') {
+    return (
+      <div className="border-t bg-gradient-to-r from-gray-500/10 to-gray-500/5">
+        <div className="px-4 py-3 flex items-center justify-center gap-3">
+          <div className="p-1.5 rounded-full bg-gray-500/20">
+            <Ban className="h-4 w-4 text-gray-400" />
+          </div>
+          <div className="text-center">
+            <p className="text-sm font-medium text-gray-400">
+              Task Cancelled
+            </p>
+            <p className="text-xs text-gray-400/70">
+              This task was stopped by user • Create a new task to continue
+            </p>
+          </div>
+          <div className="p-1.5 rounded-full bg-gray-500/20">
+            <XCircle className="h-4 w-4 text-gray-400" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Archived Status
   if (status === 'archived') {
     return (
@@ -313,6 +418,6 @@ export function ActionBanner({
     );
   }
 
-  // No banner for other statuses
+  // No banner for other statuses (pending, queued, running)
   return null;
 }

@@ -18,42 +18,54 @@ interface StatusChartProps {
   className?: string;
 }
 
-// Status colors matching TaskStatusBadge
+// Status colors matching TaskStatusBadge - Updated for Dual-Path Completion
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  pending: '#6b7280',    // gray
-  running: '#3b82f6',    // blue
-  suspended: '#f59e0b',  // amber
-  awaiting_review: '#8b5cf6', // purple
-  archived: '#22c55e',   // green
-  failed: '#ef4444',     // red
+  pending: '#6b7280',      // gray
+  queued: '#f59e0b',       // amber
+  running: '#3b82f6',      // blue
+  suspended: '#f97316',    // orange
+  awaiting_review: '#0ea5e9', // sky
+  completed: '#10b981',    // emerald
+  archived: '#16a34a',     // green-600
+  failed: '#ef4444',       // red
+  cancelled: '#9ca3af',    // gray-400
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {
   pending: 'Pending',
+  queued: 'Queued',
   running: 'Running',
   suspended: 'Suspended',
   awaiting_review: 'Review',
+  completed: 'Completed',
   archived: 'Archived',
   failed: 'Failed',
+  cancelled: 'Cancelled',
 };
 
 /**
  * Bar chart showing task distribution by status
+ * Updated for Dual-Path Completion Mechanism
  */
 export function StatusChart({ data, className }: StatusChartProps) {
   const chartData = useMemo(() => {
-    return (Object.entries(data) as [TaskStatus, number][])
-      .map(([status, count]) => ({
+    // Display order: active statuses first, then terminal statuses
+    const order: TaskStatus[] = [
+      'running', 'queued', 'pending', 'suspended', 'awaiting_review',
+      'completed', 'archived', 'failed', 'cancelled'
+    ];
+    
+    return order
+      .map((status) => ({
         status,
         label: STATUS_LABELS[status],
-        count,
+        count: data[status] ?? 0,
         color: STATUS_COLORS[status],
       }))
-      .filter(item => item.count > 0 || ['running', 'pending', 'archived'].includes(item.status))
-      .sort((a, b) => {
-        const order: TaskStatus[] = ['running', 'pending', 'suspended', 'awaiting_review', 'archived', 'failed'];
-        return order.indexOf(a.status) - order.indexOf(b.status);
-      });
+      .filter(item => 
+        item.count > 0 || 
+        ['running', 'pending', 'completed', 'archived'].includes(item.status)
+      );
   }, [data]);
 
   const total = useMemo(() => {

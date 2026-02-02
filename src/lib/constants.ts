@@ -44,16 +44,14 @@ export const AGENT_STATUS_CONFIG: Record<AgentStatus, { label: string; color: st
 
 export const TASK_STATUS_CONFIG: Record<TaskStatus, { label: string; color: string; bgColor: string }> = {
   pending: { label: 'Pending', color: 'text-muted-foreground', bgColor: 'bg-muted' },
-  queued: { label: 'Queued', color: 'text-blue-400', bgColor: 'bg-blue-400/10' },
-  running: { label: 'Running', color: 'text-green-500', bgColor: 'bg-green-500/10' },
+  queued: { label: 'Queued', color: 'text-amber-500', bgColor: 'bg-amber-500/10' },
+  running: { label: 'Running', color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
   suspended: { label: 'Suspended', color: 'text-orange-500', bgColor: 'bg-orange-500/10' },
-  awaiting_review: { label: 'Awaiting Review', color: 'text-yellow-500', bgColor: 'bg-yellow-500/10' },
-  approved: { label: 'Approved', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
-  rejected: { label: 'Rejected', color: 'text-red-500', bgColor: 'bg-red-500/10' },
-  completed: { label: 'Completed', color: 'text-blue-500', bgColor: 'bg-blue-500/10' },
-  archived: { label: 'Archived', color: 'text-purple-500', bgColor: 'bg-purple-500/10' },
+  awaiting_review: { label: 'Awaiting Review', color: 'text-sky-500', bgColor: 'bg-sky-500/10' },
+  completed: { label: 'Completed', color: 'text-emerald-500', bgColor: 'bg-emerald-500/10' },
+  archived: { label: 'Archived', color: 'text-green-600', bgColor: 'bg-green-600/10' },
   failed: { label: 'Failed', color: 'text-red-500', bgColor: 'bg-red-500/10' },
-  cancelled: { label: 'Cancelled', color: 'text-gray-500', bgColor: 'bg-gray-500/10' },
+  cancelled: { label: 'Cancelled', color: 'text-gray-400', bgColor: 'bg-gray-400/10' },
 };
 
 export const TASK_PRIORITY_CONFIG: Record<TaskPriority, { label: string; color: string; bgColor: string }> = {
