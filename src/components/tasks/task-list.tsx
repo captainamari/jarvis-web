@@ -16,6 +16,7 @@ import {
 import { TaskCard } from './task-card';
 import { CreateTaskDialog } from './create-task-dialog';
 import { getUserTasks } from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { Loader2, RefreshCw, Inbox, Plus, X } from 'lucide-react';
 import type { Task, TaskStatus, TaskId } from '@/types/task';
 
@@ -52,9 +53,15 @@ const ACTIVE_STATUSES: TaskStatus[] = ['pending', 'queued', 'running', 'suspende
 interface TaskListProps {
   onTaskSelect?: (task: Task) => void;
   selectedTaskId?: TaskId | null;
+  /** Compact mode for sidebar usage - hides title, uses smaller spacing */
+  compact?: boolean;
+  /** Hide the create task button in header (useful when there's a global create button) */
+  hideCreateButton?: boolean;
+  /** Callback when a new task is created */
+  onTaskCreated?: (task: Task) => void;
 }
 
-export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
+export function TaskList({ onTaskSelect, selectedTaskId, compact = false, hideCreateButton = false, onTaskCreated }: TaskListProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -127,13 +134,15 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
   }, [tasks, filterStatus]);
 
   const handleTaskCreated = (taskId: TaskId) => {
-    // Optionally select the new task
-    const newTask = tasks?.find((t) => t.id === taskId);
-    if (newTask) {
-      onTaskSelect?.(newTask);
-    }
     // Refetch to get the new task
-    refetch();
+    refetch().then(() => {
+      // Find and select the new task after refetch
+      const newTask = tasks?.find((t) => t.id === taskId);
+      if (newTask) {
+        onTaskSelect?.(newTask);
+        onTaskCreated?.(newTask);
+      }
+    });
   };
 
   const isFiltered = filterStatus !== 'all';
@@ -141,9 +150,14 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
+      <div className={cn(
+        "flex items-center justify-between border-b border-border",
+        compact ? "p-3" : "p-4"
+      )}>
         <div>
-          <h2 className="text-lg font-semibold">Tasks</h2>
+          <h2 className={cn("font-semibold", compact ? "text-base" : "text-lg")}>
+            Tasks
+          </h2>
           <p className="text-xs text-muted-foreground">
             {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
             {isFiltered && tasks && ` (of ${tasks.length})`}
@@ -155,46 +169,82 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
             size="icon"
             onClick={() => refetch()}
             disabled={isFetching}
+            className={compact ? "h-8 w-8" : undefined}
           >
-            <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
+            <RefreshCw className={cn("h-4 w-4", isFetching && "animate-spin")} />
           </Button>
-          <CreateTaskDialog onSuccess={handleTaskCreated} />
+          {!hideCreateButton && <CreateTaskDialog onSuccess={handleTaskCreated} />}
         </div>
       </div>
 
-      {/* Filter */}
-      <div className="flex items-center gap-2 p-4 border-b border-border bg-secondary/20">
-        <Label htmlFor="status-filter" className="text-sm text-muted-foreground whitespace-nowrap">
-          Filter:
-        </Label>
-        <Select value={filterStatus} onValueChange={handleFilterChange}>
-          <SelectTrigger id="status-filter" className="w-[180px]">
-            <SelectValue placeholder="Select status" />
-          </SelectTrigger>
-          <SelectContent>
-            {FILTER_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {isFiltered && (
+      {/* Quick Filter Buttons + Dropdown */}
+      <div className={cn(
+        "flex flex-col gap-2 border-b border-border bg-secondary/20",
+        compact ? "p-2" : "p-4"
+      )}>
+        {/* Quick Filter Buttons */}
+        <div className="flex items-center gap-1">
           <Button
-            variant="ghost"
+            variant={filterStatus === 'active' || filterStatus === 'all' && !isFiltered ? 'default' : 'outline'}
             size="sm"
-            onClick={clearFilter}
-            className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            onClick={() => handleFilterChange('active')}
+            className={cn("flex-1 h-8 text-xs", filterStatus === 'active' && "bg-primary")}
           >
-            <X className="h-4 w-4 mr-1" />
-            Clear
+            Active
           </Button>
-        )}
+          <Button
+            variant={filterStatus === 'archived' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handleFilterChange('archived')}
+            className={cn("flex-1 h-8 text-xs", filterStatus === 'archived' && "bg-primary")}
+          >
+            Archived
+          </Button>
+          {isFiltered && filterStatus !== 'active' && filterStatus !== 'archived' && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilter}
+              className="h-8 px-2"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+        
+        {/* Advanced Filter Dropdown */}
+        <div className="flex items-center gap-2">
+          <Label htmlFor="status-filter" className="text-xs text-muted-foreground whitespace-nowrap">
+            Filter:
+          </Label>
+          <Select value={filterStatus} onValueChange={handleFilterChange}>
+            <SelectTrigger id="status-filter" className="h-8 text-xs flex-1">
+              <SelectValue placeholder="Select status" />
+            </SelectTrigger>
+            <SelectContent>
+              {FILTER_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value} className="text-xs">
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {isFiltered && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilter}
+              className="h-8 px-2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Task List */}
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-3">
+        <div className={cn("space-y-2", compact ? "p-2" : "p-4 space-y-3")}>
           {/* Loading State */}
           {isLoading && (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -235,11 +285,11 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
 
           {/* Empty State - No tasks matching filter */}
           {!isLoading && !isError && tasks && tasks.length > 0 && filteredTasks.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-              <Inbox className="h-12 w-12 mb-4 opacity-50" />
-              <p className="text-sm mb-2">No tasks match the current filter</p>
+            <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+              <Inbox className={cn("mb-3 opacity-50", compact ? "h-8 w-8" : "h-12 w-12 mb-4")} />
+              <p className="text-sm mb-2">No tasks match the filter</p>
               <Button variant="outline" size="sm" onClick={clearFilter}>
-                <X className="h-4 w-4 mr-2" />
+                <X className="h-4 w-4 mr-1" />
                 Clear filter
               </Button>
             </div>
@@ -254,6 +304,7 @@ export function TaskList({ onTaskSelect, selectedTaskId }: TaskListProps) {
                 task={task}
                 onClick={onTaskSelect}
                 isSelected={selectedTaskId === task.id}
+                compact={compact}
               />
             ))}
         </div>

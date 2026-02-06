@@ -18,17 +18,17 @@ interface StatusChartProps {
   className?: string;
 }
 
-// Status colors matching TaskStatusBadge - Updated for Dual-Path Completion
+// Status colors matching TaskStatusBadge - Synced with task-status-badge.tsx
 const STATUS_COLORS: Record<TaskStatus, string> = {
-  pending: '#6b7280',      // gray
-  queued: '#f59e0b',       // amber
-  running: '#3b82f6',      // blue
-  suspended: '#f97316',    // orange
-  awaiting_review: '#0ea5e9', // sky
-  completed: '#10b981',    // emerald
-  archived: '#16a34a',     // green-600
-  failed: '#ef4444',       // red
-  cancelled: '#9ca3af',    // gray-400
+  pending: '#6b7280',      // gray-500
+  queued: '#f59e0b',       // amber-500
+  running: '#22c55e',      // green-500 (呼吸灯效果)
+  suspended: '#f97316',    // orange-500 (外圈高亮)
+  awaiting_review: '#3b82f6', // blue-500
+  completed: '#a855f7',    // purple-500 (区分于archived)
+  archived: '#9ca3af',     // gray-400
+  failed: '#ef4444',       // red-500
+  cancelled: '#6b7280',    // gray-500
 };
 
 const STATUS_LABELS: Record<TaskStatus, string> = {

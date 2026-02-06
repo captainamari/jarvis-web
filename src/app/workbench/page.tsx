@@ -3,23 +3,22 @@
 import { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CURRENT_USER_ID } from '@/config';
-import { createTask, getTask, getUserTasks, reviewTask, getTaskEvents, approveHITL, archiveTask } from '@/lib/api';
+import { createTask, getTask, reviewTask, getTaskEvents, approveHITL, archiveTask } from '@/lib/api';
 import { useTaskStream } from '@/hooks/use-task-stream';
 import { ChatHeader } from '@/components/workbench/chat-header';
 import { ChatMessages } from '@/components/workbench/chat-messages';
 import { ChatInput } from '@/components/workbench/chat-input';
 import { ActionBanner } from '@/components/workbench/action-banner';
 import { ArchiveSummaryDialog } from '@/components/workbench/archive-summary-dialog';
-import { TaskCard } from '@/components/tasks/task-card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
-import { Plus, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { TaskList } from '@/components/tasks/task-list';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Task, TaskId, ReviewResponse } from '@/types/task';
 import type { ChatMessage } from '@/types/sse';
 
 export default function WorkbenchPage() {
   const queryClient = useQueryClient();
+  
   // TaskId 使用 string 类型，避免 JavaScript 大数精度丢失
   const [selectedTaskId, setSelectedTaskId] = useState<TaskId | null>(null);
   const [showSidebar, setShowSidebar] = useState(true);
@@ -29,13 +28,6 @@ export default function WorkbenchPage() {
   // Archive summary dialog state
   const [showArchiveDialog, setShowArchiveDialog] = useState(false);
   const [archiveResponse, setArchiveResponse] = useState<ReviewResponse | null>(null);
-
-  // Fetch user tasks
-  const { data: tasks = [], isLoading: isLoadingTasks } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => getUserTasks({ include_archived: false }),
-    refetchInterval: 10000, // Refresh every 10 seconds
-  });
 
   // Fetch selected task details
   const { data: selectedTask, refetch: refetchTask } = useQuery({
@@ -348,8 +340,8 @@ export default function WorkbenchPage() {
     setSelectedTaskId(null);
   };
 
-  // Create new task handler
-  const handleCreateNewTask = () => {
+  // Handle starting a new task (clear current selection)
+  const handleNewTask = () => {
     disconnect();
     clearMessages();
     setSelectedTaskId(null);
@@ -375,54 +367,23 @@ export default function WorkbenchPage() {
 
   return (
     <div className="flex h-full">
-      {/* Task Sidebar */}
+      {/* Task Sidebar - Using TaskList Component */}
       <div
         className={cn(
           'border-r bg-card/30 transition-all duration-300 flex flex-col',
           showSidebar ? 'w-80' : 'w-0 overflow-hidden'
         )}
       >
-        {/* Sidebar Header */}
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <History className="h-5 w-5 text-muted-foreground" />
-              <h2 className="font-semibold">Recent Tasks</h2>
-            </div>
-          </div>
-          <Button
-            onClick={handleCreateNewTask}
-            className="w-full gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            New Task
-          </Button>
-        </div>
-
-        {/* Task List */}
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {isLoadingTasks ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                Loading tasks...
-              </div>
-            ) : tasks.length === 0 ? (
-              <div className="p-4 text-center text-sm text-muted-foreground">
-                No active tasks
-              </div>
-            ) : (
-              tasks.map((task) => (
-                <TaskCard
-                  key={task.id}
-                  task={task}
-                  isSelected={task.id === selectedTaskId}
-                  onClick={() => handleSelectTask(task)}
-                  compact
-                />
-              ))
-            )}
-          </div>
-        </ScrollArea>
+        <TaskList
+          onTaskSelect={handleSelectTask}
+          selectedTaskId={selectedTaskId}
+          compact
+          hideCreateButton
+          onTaskCreated={(task) => {
+            // Connect to SSE stream for new task
+            connect(task.id);
+          }}
+        />
       </div>
 
       {/* Sidebar Toggle */}
@@ -504,7 +465,7 @@ export default function WorkbenchPage() {
         onOpenChange={setShowArchiveDialog}
         task={selectedTask || null}
         reviewResponse={archiveResponse}
-        onCreateNewTask={handleCreateNewTask}
+        onCreateNewTask={handleNewTask}
       />
     </div>
   );

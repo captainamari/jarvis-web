@@ -4,7 +4,7 @@ A modern web frontend for **Project Jarvis** - a multi-agent task execution syst
 
 Built with [Next.js 14](https://nextjs.org), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/), and [shadcn/ui](https://ui.shadcn.com/).
 
-> **Version**: 5.2.0 | **Last Updated**: 2026-02-02
+> **Version**: 5.2.1 | **Last Updated**: 2026-02-03
 
 ## ✨ Features
 
@@ -228,15 +228,17 @@ PENDING → RUNNING → AWAITING_REVIEW → ARCHIVED
 ```
 
 ### Status Types
-- `pending` - Waiting to execute
-- `queued` - Queued for execution
-- `running` - Currently executing
-- `suspended` - HITL 1.0 - Awaiting user input
-- `awaiting_review` - M5 - Agent completed, awaiting user review
-- `completed` - Quick Finish path - Task completed, ready to archive
-- `archived` - Task completed and archived
-- `failed` - Execution failed
-- `cancelled` - User cancelled
+| Status | Color | Description |
+|--------|-------|-------------|
+| `pending` | Gray | Waiting to execute |
+| `queued` | Amber | Queued for execution |
+| `running` | 🟢 Green | Currently executing (breathing animation) |
+| `suspended` | 🟠 Orange | HITL 1.0 - Awaiting user input (ring highlight) |
+| `awaiting_review` | 🔵 Blue | M5 - Agent completed, awaiting user review |
+| `completed` | 🟣 Purple | Quick Finish path - Task completed, ready to archive |
+| `archived` | ⚫ Gray | Task completed and archived |
+| `failed` | Red | Execution failed |
+| `cancelled` | Gray | User cancelled |
 
 ## 🎨 UI Components
 
@@ -263,6 +265,21 @@ PENDING → RUNNING → AWAITING_REVIEW → ARCHIVED
 MIT
 
 ## 📝 Changelog
+
+### v5.2.1 (2026-02-03)
+- **Workbench Sidebar Optimization**: Replaced custom sidebar with reusable `TaskList` component
+  - Added quick filter buttons (Active/Archived) for faster navigation
+  - Added full status dropdown filter in sidebar
+  - Removed duplicate "New Task" button (global button exists in header)
+  - Added `compact` and `hideCreateButton` props to `TaskList` component
+- **Task Status Color Scheme**: Unified status colors across all components
+  - 🟢 **Running**: Green with breathing animation (`animate-pulse`)
+  - 🟠 **Suspended**: Orange with ring highlight
+  - 🔵 **Awaiting Review**: Blue
+  - 🟣 **Completed**: Purple (distinguishes from archived)
+  - ⚫ **Archived**: Gray
+  - Synced colors in `task-status-badge.tsx`, `constants.ts`, and `status-chart.tsx`
+- **Dashboard Status Chart**: Updated bar colors to match unified color scheme
 
 ### v5.2.0 (2026-02-02)
 - **API Layer Refactor**: Updated all task APIs to use User ID path pattern (`/users/{user_id}/tasks`)

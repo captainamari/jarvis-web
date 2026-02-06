@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   XCircle,
   ListOrdered,
+  Circle,
 } from 'lucide-react';
 import type { TaskStatus } from '@/types/task';
 
@@ -24,12 +25,21 @@ interface TaskStatusBadgeProps {
 /**
  * Status configuration with colors and icons
  * Updated for Dual-Path Completion Mechanism
+ * 
+ * Color scheme:
+ * - Running: 🟢 Green with breathing animation
+ * - Suspended: 🟠 Orange warning (HITL pending)
+ * - Awaiting Review: 🔵 Blue (M5 review pending)
+ * - Completed: 🟣 Purple (ready to archive)
+ * - Archived: ⚫ Gray (finished)
+ * - Failed: 🔴 Red (error)
  */
 const statusConfig: Record<TaskStatus, {
   label: string;
   icon: React.ElementType;
   className: string;
   iconClassName?: string;
+  badgeClassName?: string;
 }> = {
   pending: {
     label: 'Pending',
@@ -39,33 +49,35 @@ const statusConfig: Record<TaskStatus, {
   queued: {
     label: 'Queued',
     icon: ListOrdered,
-    className: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
+    className: 'bg-muted text-muted-foreground border-muted-foreground/20',
   },
   running: {
     label: 'Running',
-    icon: Loader2,
-    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
-    iconClassName: 'animate-spin',
+    icon: Circle,
+    className: 'bg-green-500/10 text-green-500 border-green-500/20',
+    iconClassName: 'fill-green-500 animate-pulse',
+    badgeClassName: 'animate-pulse',
   },
   suspended: {
     label: 'Suspended',
     icon: Hand,
     className: 'bg-orange-500/10 text-orange-500 border-orange-500/20',
+    badgeClassName: 'ring-1 ring-orange-500/50',
   },
   awaiting_review: {
     label: 'Awaiting Review',
     icon: Eye,
-    className: 'bg-sky-500/10 text-sky-500 border-sky-500/20',
+    className: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   },
   completed: {
     label: 'Completed',
     icon: CheckCircle2,
-    className: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
+    className: 'bg-purple-500/10 text-purple-500 border-purple-500/20',
   },
   archived: {
     label: 'Archived',
     icon: Archive,
-    className: 'bg-green-600/10 text-green-600 border-green-600/20',
+    className: 'bg-gray-400/10 text-gray-400 border-gray-400/20',
   },
   failed: {
     label: 'Failed',
@@ -91,6 +103,7 @@ export function TaskStatusBadge({ status, className, size = 'default' }: TaskSta
       className={cn(
         'gap-1 font-medium border',
         config.className,
+        config.badgeClassName,
         isSmall && 'text-[10px] px-1.5 py-0',
         className
       )}
